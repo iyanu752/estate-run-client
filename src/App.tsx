@@ -6,7 +6,7 @@ import Footer from '@/comp/footer';
 import { useEffect, useState } from 'react';
 import Signup from '@/page/signup';
 import Login from '@/page/login';
-import { Toaster} from 'sonner'
+import { Toaster } from "sonner";
 
 
 
