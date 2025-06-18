@@ -58,7 +58,8 @@ export default function LoginPage() {
     const userType = activeTab;
       const response = await loginUser(email, password, userType);
       if (response?.success) {
-        toast.success(response.success);
+        toast.success(response.message);
+        console.log('response', response)
         navigate(`/dashboard/${activeTab}`);
       } else {
         toast.error("Login failed. Check your credentials.");

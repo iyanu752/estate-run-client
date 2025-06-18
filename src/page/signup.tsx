@@ -3,9 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-// import { useRouter } from "next/navigation"
-// import Link from "next/link"
-import { Building, ShoppingCart, User, Truck, Eye, EyeOff, Upload } from "lucide-react"
+import { Building, ShoppingCart, User, Truck, Eye, EyeOff} from "lucide-react"
 import { toast } from 'sonner'
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
@@ -15,12 +13,9 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { useNavigate } from "react-router-dom"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { signupUser } from "@/service/authService"
 
 interface FormData {
-  // Common fields
   firstName: string
   lastName: string
   email: string
@@ -38,23 +33,33 @@ interface FormData {
   businessAddress?: string
   businessPhone?: string
   businessDescription?: string
-  businessLicense?: string
 
   // Rider specific
-  vehicleType?: string
-  vehicleNumber?: string
-  licenseNumber?: string
-  emergencyContact?: string
-  emergencyPhone?: string
+}
+
+interface FormErrors {
+  firstName?: string
+  lastName?: string
+  email?: string
+  password?: string
+  confirmPassword?: string
+  phone?: string
+  termsAccepted?: string
+  address?: string
+  businessName?: string
+  businessAddress?: string
+  businessPhone?: string
 }
 
 export default function Signup() {
-//   const router = useRouter()
   const [activeTab, setActiveTab] = useState("user")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-    const navigate = useNavigate();
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
@@ -67,75 +72,195 @@ export default function Signup() {
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    
+    // Clear error when user starts typing
+    if (errors[field as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
+
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+    validateField(field)
+  }
+
+  const validateField = (field: string) => {
+    const newErrors: FormErrors = {}
+
+    switch (field) {
+      case 'firstName':
+        if (!formData.firstName.trim()) {
+          newErrors.firstName = "First name is required"
+        } else if (formData.firstName.trim().length < 2) {
+          newErrors.firstName = "First name must be at least 2 characters"
+        }
+        break
+      
+      case 'lastName':
+        if (!formData.lastName.trim()) {
+          newErrors.lastName = "Last name is required"
+        } else if (formData.lastName.trim().length < 2) {
+          newErrors.lastName = "Last name must be at least 2 characters"
+        }
+        break
+      
+      case 'email':
+        if (!formData.email.trim()) {
+          newErrors.email = "Email is required"
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+          newErrors.email = "Please enter a valid email address"
+        }
+        break
+      
+      case 'password':
+        if (!formData.password) {
+          newErrors.password = "Password is required"
+        } else if (formData.password.length < 8) {
+          newErrors.password = "Password must be at least 8 characters"
+        }
+        //  else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+        //   newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+        // }
+        break
+      
+      case 'confirmPassword':
+        if (!formData.confirmPassword) {
+          newErrors.confirmPassword = "Please confirm your password"
+        } else if (formData.password !== formData.confirmPassword) {
+          newErrors.confirmPassword = "Passwords do not match"
+        }
+        break
+      
+      case 'phone':
+        if (!formData.phone.trim()) {
+          newErrors.phone = "Phone number is required"
+        } else if (!/^\d{11}$/.test(formData.phone.trim())) {
+          newErrors.phone = "Phone number must be exactly 11 digits"
+        }
+        break
+      
+      case 'address':
+        if (activeTab === "user" && !formData.address?.trim()) {
+          newErrors.address = "Address is required"
+        }
+        break
+      
+      case 'businessName':
+        if (activeTab === "vendor" && !formData.businessName?.trim()) {
+          newErrors.businessName = "Business name is required"
+        }
+        break
+      
+      case 'businessAddress':
+        if (activeTab === "vendor" && !formData.businessAddress?.trim()) {
+          newErrors.businessAddress = "Business address is required"
+        }
+        break
+      
+      case 'businessPhone':
+        if (activeTab === "vendor" && formData.businessPhone && !/^\d{11}$/.test(formData.businessPhone)) {
+          newErrors.businessPhone = "Business phone number must be exactly 11 digits"
+        }
+        break
+      
+      case 'termsAccepted':
+        if (!formData.termsAccepted) {
+          newErrors.termsAccepted = "You must accept the terms and conditions"
+        }
+        break
+    }
+
+    setErrors((prev) => ({ ...prev, ...newErrors }))
+    return Object.keys(newErrors).length === 0
   }
 
   const validateForm = () => {
-    const errors: string[] = []
+    const fields = [
+      'firstName', 'lastName', 'email', 'password', 'confirmPassword', 'phone', 'termsAccepted'
+    ]
 
-    // Common validations
-    if (!formData.firstName.trim()) errors.push("First name is required")
-    if (!formData.lastName.trim()) errors.push("Last name is required")
-    if (!formData.email.trim()) errors.push("Email is required")
-    if (!formData.email.includes("@")) errors.push("Please enter a valid email")
-    if (formData.password.length < 8) errors.push("Password must be at least 8 characters")
-    if (formData.password !== formData.confirmPassword) errors.push("Passwords do not match")
-    if (!formData.phone.trim()) errors.push("Phone number is required")
-    if (!formData.termsAccepted) errors.push("You must accept the terms and conditions")
-
-    // User specific validations
+    // Add tab-specific fields
     if (activeTab === "user") {
-      if (!formData.address?.trim()) errors.push("Address is required")
+      fields.push('address')
+    } else if (activeTab === "vendor") {
+      fields.push('businessName', 'businessAddress', 'businessPhone')
     }
 
-    // Vendor specific validations
-    if (activeTab === "vendor") {
-      if (!formData.businessName?.trim()) errors.push("Business name is required")
-      if (!formData.businessAddress?.trim()) errors.push("Business address is required")
-    //   if (!formData.businessDescription?.trim()) errors.push("Business description is required")
-    }
+    let isValid = true
+    fields.forEach(field => {
+      if (!validateField(field)) {
+        isValid = false
+      }
+    })
 
-    // Rider specific validations
-    // if (activeTab === "rider") {
-    //   if (!formData.vehicleType?.trim()) errors.push("Vehicle type is required")
-    //   if (!formData.vehicleNumber?.trim()) errors.push("Vehicle number is required")
-    //   if (!formData.licenseNumber?.trim()) errors.push("License number is required")
-    //   if (!formData.emergencyContact?.trim()) errors.push("Emergency contact is required")
-    //   if (!formData.emergencyPhone?.trim()) errors.push("Emergency phone is required")
-    // }
+    // Mark all fields as touched to show errors
+    const touchedFields: Record<string, boolean> = {}
+    fields.forEach(field => {
+      touchedFields[field] = true
+    })
+    setTouched(touchedFields)
 
-    if (errors.length > 0) {
-     toast.error(errors.join("\n"))
-      return false
-    }
-
-    return true
+    return isValid
   }
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!validateForm()) return;
-
-  setIsLoading(true);
-
-  try {
-    const response = await signupUser(firstName, lastName, email);
-
-    if (response.success) {
-      toast.success(response.message);
-      navigate(`/login?type=${activeTab}&signup=success`);
-    } else {
-      toast.error(response.message);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      toast.error("Please fix the errors below");
+      return;
     }
 
-    console.log("Signup data sent:", { userType: activeTab, ...formData });
-  } catch (error) {
-    console.error("Signup error:", error);
-    toast.error("An error occurred during signup. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true);
 
+    try {
+      const response = await signupUser(
+        formData.firstName,
+        formData.lastName,
+        formData.email,
+        formData.password,
+        formData.address || "", 
+        parseInt(formData.phone) || 0, 
+        activeTab, 
+        formData.estate || "", 
+        formData.businessAddress, 
+        formData.businessDescription,
+        formData.businessPhone ? parseInt(formData.businessPhone) : undefined,
+        formData.businessName
+      );
+
+      if (response.success) {
+        toast.success(response.message);
+        navigate(`/login?type=${activeTab}&signup=success`);
+      } else {
+        toast.error(response.message);
+      }
+
+      console.log("Signup data sent:", { 
+        userType: activeTab, 
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        estate: formData.estate,
+        ...(activeTab === "vendor" && {
+          businessName: formData.businessName,
+          businessAddress: formData.businessAddress,
+          businessPhone: formData.businessPhone,
+          businessDescription: formData.businessDescription
+        })
+      });
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An error occurred during signup. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getFieldError = (field: keyof FormErrors) => {
+    return touched[field] && errors[field] ? errors[field] : undefined
+  }
 
   const renderCommonFields = () => (
     <>
@@ -146,8 +271,13 @@ const handleSubmit = async (e: React.FormEvent) => {
             id="firstName"
             value={formData.firstName}
             onChange={(e) => handleInputChange("firstName", e.target.value)}
+            onBlur={() => handleBlur("firstName")}
+            className={getFieldError("firstName") ? "border-red-500 focus:border-red-500" : ""}
             required
           />
+          {getFieldError("firstName") && (
+            <p className="text-sm text-red-600">{getFieldError("firstName")}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="lastName">Last Name *</Label>
@@ -155,8 +285,13 @@ const handleSubmit = async (e: React.FormEvent) => {
             id="lastName"
             value={formData.lastName}
             onChange={(e) => handleInputChange("lastName", e.target.value)}
+            onBlur={() => handleBlur("lastName")}
+            className={getFieldError("lastName") ? "border-red-500 focus:border-red-500" : ""}
             required
           />
+          {getFieldError("lastName") && (
+            <p className="text-sm text-red-600">{getFieldError("lastName")}</p>
+          )}
         </div>
       </div>
 
@@ -167,20 +302,30 @@ const handleSubmit = async (e: React.FormEvent) => {
           type="email"
           value={formData.email}
           onChange={(e) => handleInputChange("email", e.target.value)}
+          onBlur={() => handleBlur("email")}
+          className={getFieldError("email") ? "border-red-500 focus:border-red-500" : ""}
           required
         />
+        {getFieldError("email") && (
+          <p className="text-sm text-red-600">{getFieldError("email")}</p>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="phone">Phone Number *</Label>
         <Input
           id="phone"
-          type="tel"
-          placeholder="+1 (555) 123-4567"
+          type="text"
+          placeholder="08123456789"
           value={formData.phone}
           onChange={(e) => handleInputChange("phone", e.target.value)}
+          onBlur={() => handleBlur("phone")}
+          className={getFieldError("phone") ? "border-red-500 focus:border-red-500" : ""}
           required
         />
+        {getFieldError("phone") && (
+          <p className="text-sm text-red-600">{getFieldError("phone")}</p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -192,6 +337,8 @@ const handleSubmit = async (e: React.FormEvent) => {
               type={showPassword ? "text" : "password"}
               value={formData.password}
               onChange={(e) => handleInputChange("password", e.target.value)}
+              onBlur={() => handleBlur("password")}
+              className={getFieldError("password") ? "border-red-500 focus:border-red-500" : ""}
               required
             />
             <Button
@@ -204,7 +351,11 @@ const handleSubmit = async (e: React.FormEvent) => {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-xs text-gray-500">Must be at least 8 characters</p>
+          {getFieldError("password") ? (
+            <p className="text-sm text-red-600">{getFieldError("password")}</p>
+          ) : (
+            <p className="text-xs text-gray-500">Must be at least 8 characters with uppercase, lowercase, and number</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">Confirm Password *</Label>
@@ -214,6 +365,8 @@ const handleSubmit = async (e: React.FormEvent) => {
               type={showConfirmPassword ? "text" : "password"}
               value={formData.confirmPassword}
               onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+              onBlur={() => handleBlur("confirmPassword")}
+              className={getFieldError("confirmPassword") ? "border-red-500 focus:border-red-500" : ""}
               required
             />
             <Button
@@ -226,6 +379,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
           </div>
+          {getFieldError("confirmPassword") && (
+            <p className="text-sm text-red-600">{getFieldError("confirmPassword")}</p>
+          )}
         </div>
       </div>
     </>
@@ -293,15 +449,20 @@ const handleSubmit = async (e: React.FormEvent) => {
                         placeholder="123 Estate Ave, Block A"
                         value={formData.address || ""}
                         onChange={(e) => handleInputChange("address", e.target.value)}
+                        onBlur={() => handleBlur("address")}
+                        className={getFieldError("address") ? "border-red-500 focus:border-red-500" : ""}
                         required
                       />
+                      {getFieldError("address") && (
+                        <p className="text-sm text-red-600">{getFieldError("address")}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="apartmentUnit">Apartment/Unit Number</Label>
+                      <Label htmlFor="apartmentUnit">Estate</Label>
                       <Input
                         id="apartmentUnit"
-                        placeholder="Apt 101"
+                        placeholder="Opic, Isheri North Gra"
                         value={formData.estate || ""}
                         onChange={(e) => handleInputChange("estate", e.target.value)}
                       />
@@ -323,8 +484,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                         placeholder="Fresh Mart"
                         value={formData.businessName || ""}
                         onChange={(e) => handleInputChange("businessName", e.target.value)}
+                        onBlur={() => handleBlur("businessName")}
+                        className={getFieldError("businessName") ? "border-red-500 focus:border-red-500" : ""}
                         required
                       />
+                      {getFieldError("businessName") && (
+                        <p className="text-sm text-red-600">{getFieldError("businessName")}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -334,52 +500,40 @@ const handleSubmit = async (e: React.FormEvent) => {
                         placeholder="456 Estate Plaza, Ground Floor"
                         value={formData.businessAddress || ""}
                         onChange={(e) => handleInputChange("businessAddress", e.target.value)}
+                        onBlur={() => handleBlur("businessAddress")}
+                        className={getFieldError("businessAddress") ? "border-red-500 focus:border-red-500" : ""}
                         required
                       />
+                      {getFieldError("businessAddress") && (
+                        <p className="text-sm text-red-600">{getFieldError("businessAddress")}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="businessPhone">Business Phone</Label>
                       <Input
                         id="businessPhone"
-                        type="tel"
-                        placeholder="+1 (555) 987-6543"
+                        type="text"
+                        placeholder="08102335634"
                         value={formData.businessPhone || ""}
                         onChange={(e) => handleInputChange("businessPhone", e.target.value)}
+                        onBlur={() => handleBlur("businessPhone")}
+                        className={getFieldError("businessPhone") ? "border-red-500 focus:border-red-500" : ""}
                       />
+                      {getFieldError("businessPhone") && (
+                        <p className="text-sm text-red-600">{getFieldError("businessPhone")}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessDescription">Business Description *</Label>
+                      <Label htmlFor="businessDescription">Business Description</Label>
                       <Textarea
                         id="businessDescription"
                         placeholder="Describe your supermarket and what you offer..."
                         value={formData.businessDescription || ""}
                         onChange={(e) => handleInputChange("businessDescription", e.target.value)}
-                        required
                       />
                     </div>
-
-                    {/* <div className="space-y-2">
-                      <Label htmlFor="businessLicense">Business License Number</Label>
-                      <Input
-                        id="businessLicense"
-                        placeholder="BL-2023-001"
-                        value={formData.businessLicense || ""}
-                        onChange={(e) => handleInputChange("businessLicense", e.target.value)}
-                      />
-                    </div> */}
-{/* 
-                    <div className="space-y-2">
-                      <Label>Business Documents</Label>
-                      <div className="flex items-center gap-2">
-                        <Button type="button" variant="outline" size="sm">
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload License
-                        </Button>
-                        <span className="text-xs text-gray-500">PDF, JPG, PNG (Max 5MB)</span>
-                      </div>
-                    </div> */}
                   </TabsContent>
 
                   <TabsContent value="rider" className="space-y-4">
@@ -389,122 +543,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
 
                     {renderCommonFields()}
-{/* 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="vehicleType">Vehicle Type *</Label>
-                        <Select
-                          value={formData.vehicleType || ""}
-                          onValueChange={(value) => handleInputChange("vehicleType", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select vehicle type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                            <SelectItem value="bicycle">Bicycle</SelectItem>
-                            <SelectItem value="car">Car</SelectItem>
-                            <SelectItem value="scooter">Scooter</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="vehicleNumber">Vehicle Number *</Label>
-                        <Input
-                          id="vehicleNumber"
-                          placeholder="ABC-123"
-                          value={formData.vehicleNumber || ""}
-                          onChange={(e) => handleInputChange("vehicleNumber", e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div> */}
-
-                    {/* <div className="space-y-2">
-                      <Label htmlFor="licenseNumber">Driver's License Number *</Label>
-                      <Input
-                        id="licenseNumber"
-                        placeholder="DL-123456789"
-                        value={formData.licenseNumber || ""}
-                        onChange={(e) => handleInputChange("licenseNumber", e.target.value)}
-                        required
-                      />
-                    </div> */}
-
-                    {/* <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="emergencyContact">Emergency Contact Name *</Label>
-                        <Input
-                          id="emergencyContact"
-                          placeholder="John Doe"
-                          value={formData.emergencyContact || ""}
-                          onChange={(e) => handleInputChange("emergencyContact", e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="emergencyPhone">Emergency Contact Phone *</Label>
-                        <Input
-                          id="emergencyPhone"
-                          type="tel"
-                          placeholder="+1 (555) 123-4567"
-                          value={formData.emergencyPhone || ""}
-                          onChange={(e) => handleInputChange("emergencyPhone", e.target.value)}
-                          required
-                        />
-                      </div>
-                    </div> */}
-{/* 
-                    <div className="space-y-2">
-                      <Label>Required Documents</Label>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Button type="button" variant="outline" size="sm">
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Driver's License
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button type="button" variant="outline" size="sm">
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Vehicle Registration
-                          </Button>
-                        </div>
-                        <span className="text-xs text-gray-500">PDF, JPG, PNG (Max 5MB each)</span>
-                      </div>
-                    </div> */}
                   </TabsContent>
 
                   <TabsContent value="admin" className="space-y-4">
-                    {/* <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-4">
-                      <h3 className="text-lg font-semibold text-yellow-800">Admin Registration</h3>
-                      <p className="text-sm text-yellow-700">
-                        Admin accounts require approval. Please contact support for admin access.
-                      </p>
-                    </div> */}
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">Admin Registration</h3>
+                      <p className="text-sm text-gray-600">Create an admin account</p>
+                    </div>
 
                     {renderCommonFields()}
-{/* 
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="operations">Operations</SelectItem>
-                          <SelectItem value="customer-service">Customer Service</SelectItem>
-                          <SelectItem value="technical">Technical</SelectItem>
-                          <SelectItem value="management">Management</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div> */}
-
-                    {/* <div className="space-y-2">
-                      <Label htmlFor="adminCode">Admin Access Code</Label>
-                      <Input id="adminCode" placeholder="Enter admin access code" type="password" />
-                      <p className="text-xs text-gray-500">Contact support to obtain an admin access code</p>
-                    </div> */}
                   </TabsContent>
 
                   {/* Terms and Conditions */}
@@ -513,7 +560,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <Checkbox
                         id="terms"
                         checked={formData.termsAccepted}
-                        onCheckedChange={(checked) => handleInputChange("termsAccepted", checked as boolean)}
+                        onCheckedChange={(checked) => {
+                          handleInputChange("termsAccepted", checked as boolean)
+                          if (checked) {
+                            setErrors(prev => ({ ...prev, termsAccepted: undefined }))
+                          }
+                        }}
                       />
                       <div className="grid gap-1.5 leading-none">
                         <label
@@ -532,6 +584,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                             Privacy Policy
                           </a>
                         </p>
+                        {getFieldError("termsAccepted") && (
+                          <p className="text-sm text-red-600">{getFieldError("termsAccepted")}</p>
+                        )}
                       </div>
                     </div>
 

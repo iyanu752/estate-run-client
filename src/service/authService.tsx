@@ -1,5 +1,5 @@
 import API_ENDPOINTS from "@/config/endpoints";
-import axios from "axios"
+import axios from "@/config/axios"
 
 const loginUser = async (email: string, password: string, userType: string) => {
     try {
@@ -8,12 +8,12 @@ const loginUser = async (email: string, password: string, userType: string) => {
         password,
         userType
     });
-    const { message, user, userId, token } = response.data;
-    if (response.status === 200) {
+    const {  user, userId, token } = response.data;
+    if (response.status === 201) {
         localStorage.setItem("userId", userId);
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify(user));
-        return { success: true, message };
+        return { success: true, message: 'Login successful' };
     }
     }catch (err) {
         console.log("Login failed", err)

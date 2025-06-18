@@ -1,4 +1,4 @@
-const BASE_URL = "mongodb://localhost:27017/estate_run";
+const BASE_URL = "http://localhost:3000";
 
 const API_ENDPOINTS = {
 LOGIN: `${BASE_URL}/auth/login`,
