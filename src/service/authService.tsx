@@ -1,25 +1,37 @@
 import API_ENDPOINTS from "@/config/endpoints";
-import axios from "@/config/axios"
+import axios, { AxiosError } from "axios";
+
+
+// import axios, { AxiosError } from "axios";
 
 const loginUser = async (email: string, password: string, userType: string) => {
-    try {
-          const response = await axios.post(API_ENDPOINTS.LOGIN, {
-        email, 
-        password,
-        userType
+  try {
+    const response = await axios.post(API_ENDPOINTS.LOGIN, {
+      email,
+      password,
+      userType,
     });
-    const {  user, userId, token } = response.data;
-    if (response.status === 201) {
-        localStorage.setItem("userId", userId);
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
-        return { success: true, message: 'Login successful' };
+
+    const { user, userId, token } = response.data;
+
+    if (response.status === 201 || response.status === 200) {
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      return { success: true, message: "Login successful" };
     }
-    }catch (err) {
-        console.log("Login failed", err)
-        return {success: false, message: 'Login failed.'}
-    }  
-}
+  } catch (error) {
+    const err = error as AxiosError;
+
+    const resMessage = err.response?.data;
+
+    const message = Array.isArray(resMessage)
+      ? resMessage.join(", ")
+      : resMessage || "Login failed. Please try again.";
+    return { success: false, message };
+  }
+};
+ 
 
 
  const signupUser = async (

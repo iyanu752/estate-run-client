@@ -54,19 +54,38 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
     try {
-    const userType = activeTab;
+      const userType = activeTab;
       const response = await loginUser(email, password, userType);
+
       if (response?.success) {
-        toast.success(response.message);
-        console.log('response', response)
-        navigate(`/dashboard/${activeTab}`);
+        toast.success(String(response.message));
+        setTimeout(() => {
+          navigate(`/dashboard/${activeTab}`);
+        }, 500);
       } else {
-        toast.error("Login failed. Check your credentials.");
+        let errorMessage = "Login failed. Check your credentials.";
+
+        if (response?.message) {
+          if (Array.isArray(response.message)) {
+            errorMessage = response.message.join(", ");
+          } else if (
+            typeof response.message === "object" &&
+            response.message !== null &&
+            "message" in response.message
+          ) {
+            errorMessage = (response.message as { message: string }).message;
+          } else {
+            errorMessage = String(response.message);
+          }
+        }
+
+        toast.error(errorMessage);
       }
     } catch (err) {
-      console.error(err);
-      toast.error("An error occurred while logging in.");
+      console.error("Unexpected error during login:", err);
+      toast.error("An unexpected error occurred while logging in.");
     } finally {
       setIsLoading(false);
     }
@@ -135,7 +154,11 @@ export default function LoginPage() {
             </Alert>
           )}
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="user" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
@@ -155,10 +178,18 @@ export default function LoginPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="user">{renderLoginForm("user", "Resident")}</TabsContent>
-            <TabsContent value="vendor">{renderLoginForm("vendor", "Vendor")}</TabsContent>
-            <TabsContent value="rider">{renderLoginForm("rider", "Rider")}</TabsContent>
-            <TabsContent value="admin">{renderLoginForm("admin", "Admin")}</TabsContent>
+            <TabsContent value="user">
+              {renderLoginForm("user", "Resident")}
+            </TabsContent>
+            <TabsContent value="vendor">
+              {renderLoginForm("vendor", "Vendor")}
+            </TabsContent>
+            <TabsContent value="rider">
+              {renderLoginForm("rider", "Rider")}
+            </TabsContent>
+            <TabsContent value="admin">
+              {renderLoginForm("admin", "Admin")}
+            </TabsContent>
           </Tabs>
         </CardContent>
 
