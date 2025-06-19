@@ -156,7 +156,7 @@ export default function SupermarketPage() {
             <a href="/cart">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <ShoppingBag className="h-4 w-4" />
-                <span>Cart ({totalItems})</span>
+                <span>Cart{id} ({totalItems})</span>
               </Button>
             </a>
             <a href="/">

@@ -75,7 +75,7 @@ export default function OrderPage() {
             {/* Order Info */}
             <Card className="border-black/10">
               <CardHeader>
-                <CardTitle>Order Information</CardTitle>
+                <CardTitle>Order Information {id}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
