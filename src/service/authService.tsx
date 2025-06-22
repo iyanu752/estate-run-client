@@ -1,9 +1,6 @@
 import API_ENDPOINTS from "@/config/endpoints";
 import axios, { AxiosError } from "axios";
 
-
-// import axios, { AxiosError } from "axios";
-
 const loginUser = async (email: string, password: string, userType: string) => {
   try {
     const response = await axios.post(API_ENDPOINTS.LOGIN, {
@@ -12,29 +9,25 @@ const loginUser = async (email: string, password: string, userType: string) => {
       userType,
     });
 
-    const { user, userId, token } = response.data;
+    const { user, token } = response.data;
 
     if (response.status === 201 || response.status === 200) {
-      localStorage.setItem("userId", userId);
+      localStorage.setItem("userId", user.id);
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       return { success: true, message: "Login successful" };
     }
   } catch (error) {
     const err = error as AxiosError;
-
     const resMessage = err.response?.data;
-
     const message = Array.isArray(resMessage)
       ? resMessage.join(", ")
       : resMessage || "Login failed. Please try again.";
     return { success: false, message };
   }
 };
- 
 
-
- const signupUser = async (
+const signupUser = async (
   firstName: string,
   lastName: string,
   email: string,
@@ -43,9 +36,8 @@ const loginUser = async (email: string, password: string, userType: string) => {
   phone: number,
   userType: string,
   estate: string,
-  businessAddress?: string,
   businessDescription?: string,
-  businessPhone?: number,
+  businessPhoneNumber?: number,
   businessName?: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
@@ -58,10 +50,12 @@ const loginUser = async (email: string, password: string, userType: string) => {
       phone,
       userType,
       estate,
-      businessAddress,
-      businessDescription,
-      businessPhone,
-      businessName,
+      // Only include business fields if it's a vendor
+      ...(userType === 'vendor' && {
+        businessName,
+        businessDescription,
+        businessPhoneNumber,
+      }),
     };
 
     const response = await axios.post(API_ENDPOINTS.SIGNUP, payload);
@@ -73,25 +67,31 @@ const loginUser = async (email: string, password: string, userType: string) => {
     }
   } catch (err) {
     console.error('Signup failed', err);
+    
+    // Handle axios error response
+    if (axios.isAxiosError(err) && err.response?.data) {
+      const errorMessage = err.response.data.message || 'Signup failed. Please try again.';
+      return { success: false, message: errorMessage };
+    }
+    
     const message = 'Signup failed. Please try again.';
     return { success: false, message };
   }
 };
 
-
 const logoutUser = async () => {
-    try{
-        const response = await axios.post(API_ENDPOINTS.LOGOUT)
-        if (response.data && response.status === 200) {
-        localStorage.removeItem("userId");
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        return {success: true, message: "Logout sucessful"}
-        }
-    }catch(err) {
-        console.error("Logout failed", err)
-      return {sucess: false, message: "Logout failed"}
+  try {
+    const response = await axios.post(API_ENDPOINTS.LOGOUT);
+    if (response.data && response.status === 200) {
+      localStorage.removeItem("userId");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      return { success: true, message: "Logout successful" };
     }
-}
+  } catch (err) {
+    console.error("Logout failed", err);
+    return { success: false, message: "Logout failed" };
+  }
+};
 
-export { loginUser, signupUser, logoutUser}
+export { loginUser, signupUser, logoutUser };
