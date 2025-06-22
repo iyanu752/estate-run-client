@@ -1,46 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { CalendarDays, Filter } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface RevenueData {
-  total: number
-  today: number
-  thisWeek: number
-  thisMonth: number
-  thisYear: number
-}
+import { getVendorDashboard } from "../service/dashboardService"
 
 interface RevenueFilterProps {
-  data: RevenueData
-  onFilterChange: (filter: string) => void
+  supermarketId: string
 }
 
-export function RevenueFilter({ data, onFilterChange }: RevenueFilterProps) {
+export function RevenueFilter({ supermarketId }: RevenueFilterProps) {
   const [selectedFilter, setSelectedFilter] = useState("today")
+  const [revenue, setRevenue] = useState<number | null>(null)
+
+  const fetchVendorRevenue = async (range: string) => {
+    try {
+      const stats = await getVendorDashboard(supermarketId, range)
+      setRevenue(stats.Revenue)
+      console.log("Dashboard stats:", stats)
+    } catch (error) {
+      console.error("Error fetching vendor dashboard stats:", error)
+    }
+  }
+
+  useEffect(() => {
+    fetchVendorRevenue(selectedFilter)
+  }, [selectedFilter])
 
   const handleFilterChange = (value: string) => {
     setSelectedFilter(value)
-    onFilterChange(value)
-  }
-
-  const getRevenueByFilter = () => {
-    switch (selectedFilter) {
-      case "today":
-        return data.today
-      case "week":
-        return data.thisWeek
-      case "month":
-        return data.thisMonth
-      case "year":
-        return data.thisYear
-      case "total":
-        return data.total
-      default:
-        return data.today
-    }
   }
 
   return (
@@ -58,7 +47,7 @@ export function RevenueFilter({ data, onFilterChange }: RevenueFilterProps) {
               <SelectItem value="week">This Week</SelectItem>
               <SelectItem value="month">This Month</SelectItem>
               <SelectItem value="year">This Year</SelectItem>
-              <SelectItem value="total">All Time</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -67,7 +56,9 @@ export function RevenueFilter({ data, onFilterChange }: RevenueFilterProps) {
         <div className="flex items-center">
           <CalendarDays className="mr-2 h-5 w-5 text-green-600" />
           <div>
-            <span className="text-2xl font-bold text-green-600">${getRevenueByFilter().toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-600">
+              {revenue !== null ? `$${revenue.toFixed(2)}` : 'Loading...'}
+            </span>
             <p className="text-sm text-gray-500 capitalize">{selectedFilter} Revenue</p>
           </div>
         </div>

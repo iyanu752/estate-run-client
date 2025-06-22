@@ -30,11 +30,10 @@ interface FormData {
 
   // Vendor specific
   businessName?: string
-  businessAddress?: string
-  businessPhone?: string
   businessDescription?: string
+  businessPhoneNumber?: string
 
-  // Rider specific
+  // Rider specific - keeping for future use
 }
 
 interface FormErrors {
@@ -47,8 +46,7 @@ interface FormErrors {
   termsAccepted?: string
   address?: string
   businessName?: string
-  businessAddress?: string
-  businessPhone?: string
+  businessPhoneNumber?: string
 }
 
 export default function Signup() {
@@ -118,9 +116,6 @@ export default function Signup() {
         } else if (formData.password.length < 8) {
           newErrors.password = "Password must be at least 8 characters"
         }
-        //  else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-        //   newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number"
-        // }
         break
       
       case 'confirmPassword':
@@ -140,7 +135,7 @@ export default function Signup() {
         break
       
       case 'address':
-        if (activeTab === "user" && !formData.address?.trim()) {
+        if ((activeTab === "user" || activeTab === "vendor") && !formData.address?.trim()) {
           newErrors.address = "Address is required"
         }
         break
@@ -151,15 +146,9 @@ export default function Signup() {
         }
         break
       
-      case 'businessAddress':
-        if (activeTab === "vendor" && !formData.businessAddress?.trim()) {
-          newErrors.businessAddress = "Business address is required"
-        }
-        break
-      
-      case 'businessPhone':
-        if (activeTab === "vendor" && formData.businessPhone && !/^\d{11}$/.test(formData.businessPhone)) {
-          newErrors.businessPhone = "Business phone number must be exactly 11 digits"
+      case 'businessPhoneNumber':
+        if (activeTab === "vendor" && formData.businessPhoneNumber && !/^\d{11}$/.test(formData.businessPhoneNumber)) {
+          newErrors.businessPhoneNumber = "Business phone number must be exactly 11 digits"
         }
         break
       
@@ -183,7 +172,7 @@ export default function Signup() {
     if (activeTab === "user") {
       fields.push('address')
     } else if (activeTab === "vendor") {
-      fields.push('businessName', 'businessAddress', 'businessPhone')
+      fields.push('businessName', 'address', 'businessPhoneNumber')
     }
 
     let isValid = true
@@ -222,9 +211,8 @@ export default function Signup() {
         parseInt(formData.phone) || 0, 
         activeTab, 
         formData.estate || "", 
-        formData.businessAddress, 
-        formData.businessDescription,
-        formData.businessPhone ? parseInt(formData.businessPhone) : undefined,
+        formData.businessDescription, 
+        formData.businessPhoneNumber ? parseInt(formData.businessPhoneNumber) : undefined,
         formData.businessName
       );
 
@@ -245,9 +233,8 @@ export default function Signup() {
         estate: formData.estate,
         ...(activeTab === "vendor" && {
           businessName: formData.businessName,
-          businessAddress: formData.businessAddress,
-          businessPhone: formData.businessPhone,
-          businessDescription: formData.businessDescription
+          businessDescription: formData.businessDescription,
+          businessPhoneNumber: formData.businessPhoneNumber
         })
       });
     } catch (error) {
@@ -354,7 +341,7 @@ export default function Signup() {
           {getFieldError("password") ? (
             <p className="text-sm text-red-600">{getFieldError("password")}</p>
           ) : (
-            <p className="text-xs text-gray-500">Must be at least 8 characters with uppercase, lowercase, and number</p>
+            <p className="text-xs text-gray-500">Must be at least 8 characters</p>
           )}
         </div>
         <div className="space-y-2">
@@ -459,9 +446,9 @@ export default function Signup() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="apartmentUnit">Estate</Label>
+                      <Label htmlFor="estate">Estate</Label>
                       <Input
-                        id="apartmentUnit"
+                        id="estate"
                         placeholder="Opic, Isheri North Gra"
                         value={formData.estate || ""}
                         onChange={(e) => handleInputChange("estate", e.target.value)}
@@ -494,34 +481,34 @@ export default function Signup() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessAddress">Business Address *</Label>
+                      <Label htmlFor="address">Business Address *</Label>
                       <Input
-                        id="businessAddress"
+                        id="address"
                         placeholder="456 Estate Plaza, Ground Floor"
-                        value={formData.businessAddress || ""}
-                        onChange={(e) => handleInputChange("businessAddress", e.target.value)}
-                        onBlur={() => handleBlur("businessAddress")}
-                        className={getFieldError("businessAddress") ? "border-red-500 focus:border-red-500" : ""}
+                        value={formData.address || ""}
+                        onChange={(e) => handleInputChange("address", e.target.value)}
+                        onBlur={() => handleBlur("address")}
+                        className={getFieldError("address") ? "border-red-500 focus:border-red-500" : ""}
                         required
                       />
-                      {getFieldError("businessAddress") && (
-                        <p className="text-sm text-red-600">{getFieldError("businessAddress")}</p>
+                      {getFieldError("address") && (
+                        <p className="text-sm text-red-600">{getFieldError("address")}</p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="businessPhone">Business Phone</Label>
+                      <Label htmlFor="businessPhoneNumber">Business Phone</Label>
                       <Input
-                        id="businessPhone"
+                        id="businessPhoneNumber"
                         type="text"
                         placeholder="08102335634"
-                        value={formData.businessPhone || ""}
-                        onChange={(e) => handleInputChange("businessPhone", e.target.value)}
-                        onBlur={() => handleBlur("businessPhone")}
-                        className={getFieldError("businessPhone") ? "border-red-500 focus:border-red-500" : ""}
+                        value={formData.businessPhoneNumber || ""}
+                        onChange={(e) => handleInputChange("businessPhoneNumber", e.target.value)}
+                        onBlur={() => handleBlur("businessPhoneNumber")}
+                        className={getFieldError("businessPhoneNumber") ? "border-red-500 focus:border-red-500" : ""}
                       />
-                      {getFieldError("businessPhone") && (
-                        <p className="text-sm text-red-600">{getFieldError("businessPhone")}</p>
+                      {getFieldError("businessPhoneNumber") && (
+                        <p className="text-sm text-red-600">{getFieldError("businessPhoneNumber")}</p>
                       )}
                     </div>
 
@@ -543,6 +530,32 @@ export default function Signup() {
                     </div>
 
                     {renderCommonFields()}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Address *</Label>
+                      <Input
+                        id="address"
+                        placeholder="Your address"
+                        value={formData.address || ""}
+                        onChange={(e) => handleInputChange("address", e.target.value)}
+                        onBlur={() => handleBlur("address")}
+                        className={getFieldError("address") ? "border-red-500 focus:border-red-500" : ""}
+                        required
+                      />
+                      {getFieldError("address") && (
+                        <p className="text-sm text-red-600">{getFieldError("address")}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="estate">Estate</Label>
+                      <Input
+                        id="estate"
+                        placeholder="Your estate"
+                        value={formData.estate || ""}
+                        onChange={(e) => handleInputChange("estate", e.target.value)}
+                      />
+                    </div>
                   </TabsContent>
 
                   <TabsContent value="admin" className="space-y-4">
@@ -552,6 +565,32 @@ export default function Signup() {
                     </div>
 
                     {renderCommonFields()}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Address *</Label>
+                      <Input
+                        id="address"
+                        placeholder="Your address"
+                        value={formData.address || ""}
+                        onChange={(e) => handleInputChange("address", e.target.value)}
+                        onBlur={() => handleBlur("address")}
+                        className={getFieldError("address") ? "border-red-500 focus:border-red-500" : ""}
+                        required
+                      />
+                      {getFieldError("address") && (
+                        <p className="text-sm text-red-600">{getFieldError("address")}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="estate">Estate</Label>
+                      <Input
+                        id="estate"
+                        placeholder="Your estate"
+                        value={formData.estate || ""}
+                        onChange={(e) => handleInputChange("estate", e.target.value)}
+                      />
+                    </div>
                   </TabsContent>
 
                   {/* Terms and Conditions */}
@@ -604,7 +643,7 @@ export default function Signup() {
       </main>
 
       <footer className="border-t border-gray-200 py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
+        <div className="container mx-auto px-4 text-center text-small text-gray-600">
           &copy; {new Date().getFullYear()} Estate Run. All rights reserved.
         </div>
       </footer>
