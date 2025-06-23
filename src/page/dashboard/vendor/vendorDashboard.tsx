@@ -97,15 +97,16 @@ interface Supermarket {
 // Define the product/item type based on your API response
 interface Product {
   _id?: string;
-  id?: number;
+  id?: string;
   name: string;
   category?: string;
   price: number;
   unit?: string;
-  inStock?: boolean;
+  inStock: boolean;
   quantity?: number;
   image?: string;
   description?: string;
+  isAvailable?: boolean
   // Add any other fields your API returns
 }
 
@@ -279,7 +280,7 @@ export default function VendorDashboard() {
       }
 
       if (productsArray && productsArray.length > 0) {
-        const transformedProducts = productsArray.map((product, index) => ({
+        const transformedProducts = productsArray.map((product: Product, index: number) => ({
           id: product._id || product.id || index + 1,
           _id: product._id,
           name: product.name || "Unnamed Product",
@@ -294,13 +295,13 @@ export default function VendorDashboard() {
               ? product.isAvailable
               : product.inStock !== undefined
               ? product.inStock
-              : (product.stock || product.quantity) > 0,
+              : (product.inStock || product.quantity) > 0,
           quantity:
-            product.stock !== undefined
-              ? product.stock
+            product.inStock !== undefined
+              ? product.inStock
               : typeof product.quantity === "number"
               ? product.quantity
-              : parseInt(product.quantity) || 0,
+              : (product.quantity) || 0,
           image: product.image || "/placeholder.svg?height=100&width=100",
           description: product.description || "",
         }));
@@ -339,7 +340,7 @@ export default function VendorDashboard() {
   const handleAddItem = (newItem: any) => {
     const item = {
       ...newItem,
-      id: Math.max(...items.map((i) => i.id || 0)) + 1,
+      id: Math.max(...items.map((i) => Number(i.id) || 0)) + 1,
     };
     setItems([...items, item]);
     // Optionally refresh the products list from the server
@@ -360,17 +361,14 @@ export default function VendorDashboard() {
   };
 
   const handleDeleteItem = async (itemId: number | string) => {
- 
-      setItems(
-        items.filter((item) => item.id !== itemId && item._id !== itemId)
-      );
-      try {
-        await deleteProduct(itemId as string);
-        toast.success("Product deleted successfully");
-        fetchVendorProducts();
-      } catch (error) {
-        console.error("Error deleting product: ", error);
-      }
+    setItems(items.filter((item) => item.id !== itemId && item._id !== itemId));
+    try {
+      await deleteProduct(itemId as string);
+      toast.success("Product deleted successfully");
+      fetchVendorProducts();
+    } catch (error) {
+      console.error("Error deleting product: ", error);
+    }
   };
 
   const handleEditClick = (item: Product) => {
@@ -640,7 +638,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold text-green-600 truncate">
-                      ${getCurrentData().revenue.toFixed(2)}
+                      ₦{getCurrentData().revenue.toFixed(2)}
                     </span>
                   </div>
                 </CardContent>
@@ -674,7 +672,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-purple-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold truncate">
-                      $
+                      ₦
                       {(
                         getCurrentData().revenue / getCurrentData().orders
                       ).toFixed(2)}
@@ -808,7 +806,7 @@ export default function VendorDashboard() {
                               <div className="flex items-center justify-between">
                                 <div className="text-sm">
                                   <span className="font-medium">
-                                    ${item.price.toFixed(2)}
+                                    ₦{item.price.toFixed(2)}
                                   </span>
                                   <span className="text-gray-500 ml-2">
                                     Qty: {item.quantity}
@@ -851,9 +849,11 @@ export default function VendorDashboard() {
                                         </AlertDialogCancel>
                                         <AlertDialogAction
                                           className="bg-red-600 hover:bg-red-700 text-white"
-                                          onClick={() =>
-                                            handleDeleteItem(item.id)
-                                          }
+                                          onClick={() => {
+                                            const id = item._id ?? item.id;
+                                            if (id !== undefined)
+                                              handleDeleteItem(id);
+                                          }}
                                         >
                                           Yes, delete it
                                         </AlertDialogAction>
@@ -925,7 +925,7 @@ export default function VendorDashboard() {
                               {item.category || "Uncategorized"}
                             </td>
                             <td className="px-4 py-3 text-sm font-medium">
-                              ${item.price.toFixed(2)}
+                              ₦{item.price.toFixed(2)}
                               {item.unit && (
                                 <span className="text-xs text-gray-500 ml-1">
                                   /{item.unit}
@@ -985,9 +985,11 @@ export default function VendorDashboard() {
                                       </AlertDialogCancel>
                                       <AlertDialogAction
                                         className="bg-red-600 hover:bg-red-700 text-white"
-                                        onClick={() =>
-                                          handleDeleteItem(item.id)
-                                        }
+                                        onClick={() => {
+                                          const id = item._id ?? item.id;
+                                          if (id !== undefined)
+                                            handleDeleteItem(id);
+                                        }}
                                       >
                                         Yes, delete it
                                       </AlertDialogAction>
@@ -1039,7 +1041,7 @@ export default function VendorDashboard() {
                         <div className="flex items-center justify-between text-sm mb-3">
                           <span className="text-gray-500">{order.date}</span>
                           <span className="font-medium">
-                            ${order.total.toFixed(2)}
+                           ₦{order.total.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -1097,7 +1099,7 @@ export default function VendorDashboard() {
                           <td className="px-4 py-3 text-sm">{order.date}</td>
                           <td className="px-4 py-3 text-sm">{order.items}</td>
                           <td className="px-4 py-3 text-sm font-medium">
-                            ${order.total.toFixed(2)}
+                            ₦{order.total.toFixed(2)}
                           </td>
                           <td className="px-4 py-3">
                             <Badge
@@ -1146,26 +1148,39 @@ export default function VendorDashboard() {
           </div>
         </div>
       </main>
+      {supermarket?.ownerId && (
+        <AddEditItemModal
+          isOpen={isAddItemModalOpen}
+          onClose={() => setIsAddItemModalOpen(false)}
+          onSave={handleAddItem}
+          mode="add"
+          ownerId={supermarket?.ownerId}
+        />
+      )}
 
-      <AddEditItemModal
-        isOpen={isAddItemModalOpen}
-        onClose={() => setIsAddItemModalOpen(false)}
-        onSave={handleAddItem}
-        mode="add"
-        ownerId={supermarket?.ownerId}
-      />
-
-      <AddEditItemModal
-        isOpen={isEditItemModalOpen}
-        onClose={() => {
-          setIsEditItemModalOpen(false);
-          setSelectedItem(null);
-        }}
-        onSave={handleEditItem}
-        item={selectedItem}
-        mode="edit"
-        ownerId={supermarket?.ownerId}
-      />
+      {supermarket?.ownerId && (
+        <AddEditItemModal
+          isOpen={isEditItemModalOpen}
+          onClose={() => {
+            setIsEditItemModalOpen(false);
+            setSelectedItem(null);
+          }}
+          onSave={handleEditItem}
+          item={
+            selectedItem
+              ? {
+                  ...selectedItem,
+                  category: selectedItem.category ?? "Uncategorized",
+                  unit: selectedItem.unit ?? "unit",
+                  quantity: selectedItem.quantity ?? 0,
+                  inStock: selectedItem.inStock ?? false,
+                }
+              : null
+          }
+          mode="edit"
+          ownerId={supermarket.ownerId}
+        />
+      )}
 
       <OrderDetailsModal
         isOpen={isOrderDetailsModalOpen}

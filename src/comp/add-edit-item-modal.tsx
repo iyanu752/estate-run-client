@@ -25,14 +25,15 @@ import { toast } from "sonner"
 interface Item {
   id?: string
   name: string
-  category: string
+  category?: string
   price: number
-  unit: string
+  unit?: string
   quantity: number
-  description: string
-  inStock: boolean
+  description?: string
+  inStock?: boolean
   image?: string
   ownerId?: string
+  isAvailable?: boolean
 }
 
 interface AddEditItemModalProps {
@@ -117,7 +118,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   if (!formData.name.trim() || !formData.category || formData.price <= 0 || !formData.unit) {
-    alert("Please fill in all required fields");
+    toast.warning("Please fill in all required fields");
     return;
   }
 
