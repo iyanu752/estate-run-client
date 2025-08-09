@@ -222,21 +222,6 @@ export default function Signup() {
       } else {
         toast.error(response.message);
       }
-
-      console.log("Signup data sent:", { 
-        userType: activeTab, 
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        estate: formData.estate,
-        ...(activeTab === "vendor" && {
-          businessName: formData.businessName,
-          businessDescription: formData.businessDescription,
-          businessPhoneNumber: formData.businessPhoneNumber
-        })
-      });
     } catch (error) {
       console.error("Signup error:", error);
       toast.error("An error occurred during signup. Please try again.");

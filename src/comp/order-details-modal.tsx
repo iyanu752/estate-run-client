@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,126 +9,152 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapPin, Phone, Clock } from "lucide-react"
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MapPin, Clock } from "lucide-react";
+import { updateOrderStatus } from "@/service/orderService";
+import { useState, useEffect } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-interface OrderItem {
-  id: number
-  name: string
-  quantity: number
-  price: number
-  unit: string
-  image?: string
-}
-
-interface Order {
-  id: string
-  customer: string
-  customerEmail: string
-  customerPhone: string
-  customerAvatar?: string
-  date: string
-  time: string
-  items: OrderItem[]
-  subtotal: number
-  deliveryFee: number
-  tax: number
-  total: number
-  status: "Pending" | "Confirmed" | "Preparing" | "Ready" | "Completed" | "Cancelled"
-  deliveryAddress: string
-  specialInstructions?: string
-  estimatedPreparationTime?: string
+interface VendorOrder {
+  _id: string;
+  userId: {
+    email: string;
+    firstName: string;
+    supermarket: string;
+    phone: string;
+  };
+  items: {
+    product: {
+      _id: string;
+      name: string;
+      price: number;
+      image?: string;
+      unit?: string;
+    };
+    quantity: number;
+  }[];
+  totalAmount: number;
+  deliveryAddress: string;
+  deliveryInstructions?: string;
+  status: string;
+  orderId: string;
+  createdAt: string;
 }
 
 interface OrderDetailsModalProps {
-  isOpen: boolean
-  onClose: () => void
-  order: Order | null
-  onUpdateStatus: (orderId: string, newStatus: Order["status"]) => void
+  isOpen: boolean;
+  onClose: () => void;
+  order: VendorOrder | null;
+  onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onRefreshOrder?: (orderId: string) => Promise<VendorOrder | null>; // Add this prop
 }
 
-// Mock detailed order data
-const getOrderDetails = (orderId: string): Order => ({
-  id: orderId,
-  customer: "John Doe",
-  customerEmail: "john.doe@example.com",
-  customerPhone: "+1 (555) 123-4567",
-  customerAvatar: "/placeholder.svg?height=40&width=40",
-  date: "2023-06-16",
-  time: "14:30",
-  items: [
-    {
-      id: 1,
-      name: "Fresh Apples",
-      quantity: 3,
-      price: 2.99,
-      unit: "per lb",
-      image: "/placeholder.svg?height=60&width=60",
-    },
-    {
-      id: 2,
-      name: "Whole Wheat Bread",
-      quantity: 1,
-      price: 3.49,
-      unit: "loaf",
-      image: "/placeholder.svg?height=60&width=60",
-    },
-    {
-      id: 3,
-      name: "Organic Milk",
-      quantity: 2,
-      price: 4.99,
-      unit: "gallon",
-      image: "/placeholder.svg?height=60&width=60",
-    },
-  ],
-  subtotal: 18.95,
-  deliveryFee: 3.99,
-  tax: 1.52,
-  total: 24.46,
-  status: "Pending",
-  deliveryAddress: "123 Estate Ave, Block A, Apt 101",
-  specialInstructions: "Please ring doorbell twice. Leave at door if no answer.",
-  estimatedPreparationTime: "15-20 minutes",
-})
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  // confirmed: "bg-blue-100 text-blue-800 border-blue-300",
+  packed: "bg-orange-100 text-orange-800 border-orange-300",
+  "out-for-delivery": "bg-purple-100 text-purple-800 border-purple-300",
+  delivered: "bg-green-100 text-green-800 border-green-300",
+  cancelled: "bg-red-100 text-red-800 border-red-300",
+  "payment-failed": "bg-red-50 text-red-700 border-red-200",
+};
 
-const statusColors = {
-  Pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  Confirmed: "bg-blue-100 text-blue-800 border-blue-300",
-  Preparing: "bg-orange-100 text-orange-800 border-orange-300",
-  Ready: "bg-purple-100 text-purple-800 border-purple-300",
-  Completed: "bg-green-100 text-green-800 border-green-300",
-  Cancelled: "bg-red-100 text-red-800 border-red-300",
-}
+export function OrderDetailsModal({
+  isOpen,
+  onClose,
+  order,
+  onUpdateStatus,
+  onRefreshOrder,
+}: OrderDetailsModalProps) {
+  const [currentOrder, setCurrentOrder] = useState<VendorOrder | null>(order);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  // Update local state when order prop changes
+  useEffect(() => {
+    setCurrentOrder(order);
+  }, [order]);
 
-const nextStatusMap = {
-  Pending: "Confirmed",
-  Confirmed: "Preparing",
-  Preparing: "Ready",
-  Ready: "Completed",
-  Completed: null,
-  Cancelled: null,
-} as const
+  if (!currentOrder) return null;
 
-export function OrderDetailsModal({ isOpen, onClose, order, onUpdateStatus }: OrderDetailsModalProps) {
-  if (!order) return null
+  const subtotal = currentOrder.items.reduce(
+    (sum, item) => sum + item.product.price * item.quantity,
+    0
+  );
+  const deliveryFee = 500;
+  const tax = 500;
+  const total = currentOrder.totalAmount;
 
-  const orderDetails = getOrderDetails(order.id)
-  const nextStatus = nextStatusMap[orderDetails.status]
+  const handleStatusUpdate = async () => {
+    if (currentOrder.status !== "pending") return;
 
-  const handleStatusUpdate = () => {
-    if (nextStatus) {
-      onUpdateStatus(orderDetails.id, nextStatus as Order["status"])
+    setIsUpdating(true);
+    try {
+      // await updateOrderStatus(currentOrder.orderId, "confirmed");
+      // const updatedOrder = { ...currentOrder, status: "confirmed" };
+      // setCurrentOrder(updatedOrder);
+      // onUpdateStatus(currentOrder.orderId, "confirmed");
+      // await new Promise((resolve) => setTimeout(resolve, 500));
+      await updateOrderStatus(currentOrder.orderId, "packed");
+      const finalOrder = { ...currentOrder, status: "packed" };
+      setCurrentOrder(finalOrder);
+      onUpdateStatus(currentOrder.orderId, "packed");
+      if (onRefreshOrder) {
+        const refreshedOrder = await onRefreshOrder(currentOrder.orderId);
+        if (refreshedOrder) {
+          setCurrentOrder(refreshedOrder);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error);
+    } finally {
+      setIsUpdating(false);
     }
-  }
+  };
 
-  const handleCancelOrder = () => {
-    if (confirm("Are you sure you want to cancel this order?")) {
-      onUpdateStatus(orderDetails.id, "Cancelled")
+  const handleCancelOrder = async () => {
+    setIsUpdating(true);
+    try {
+      await updateOrderStatus(currentOrder._id, "cancelled");
+
+      const updatedOrder = { ...currentOrder, status: "cancelled" };
+      setCurrentOrder(updatedOrder);
+      onUpdateStatus(currentOrder._id, "cancelled");
+
+      if (onRefreshOrder) {
+        const refreshedOrder = await onRefreshOrder(currentOrder._id);
+        if (refreshedOrder) {
+          setCurrentOrder(refreshedOrder);
+        }
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+    } finally {
+      setIsUpdating(false);
+      setShowCancelDialog(false);
     }
-  }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -136,12 +162,21 @@ export function OrderDetailsModal({ isOpen, onClose, order, onUpdateStatus }: Or
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Order Details</span>
-            <Badge variant="outline" className={statusColors[orderDetails.status]}>
-              {orderDetails.status}
+            <Badge
+              variant="outline"
+              className={
+                statusColors[currentOrder.status] ||
+                "bg-gray-100 text-gray-800 border-gray-300"
+              }
+            >
+              {currentOrder.status.charAt(0).toUpperCase() +
+                currentOrder.status.slice(1).replace(/-/g, " ")}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Order #{orderDetails.id} • Placed on {orderDetails.date} at {orderDetails.time}
+            Order #{currentOrder.orderId} • Placed on{" "}
+            {formatDate(currentOrder.createdAt)} at{" "}
+            {formatTime(currentOrder.createdAt)}
           </DialogDescription>
         </DialogHeader>
 
@@ -151,28 +186,33 @@ export function OrderDetailsModal({ isOpen, onClose, order, onUpdateStatus }: Or
             <h3 className="font-semibold text-lg">Customer Information</h3>
             <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
               <Avatar className="h-12 w-12">
-                <AvatarImage src={orderDetails.customerAvatar || "/placeholder.svg"} alt={orderDetails.customer} />
-                <AvatarFallback>{orderDetails.customer.charAt(0)}</AvatarFallback>
+                <AvatarFallback>
+                  {currentOrder.userId?.firstName?.charAt(0) || "C"}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-2">
                 <div>
-                  <p className="font-medium">{orderDetails.customer}</p>
-                  <p className="text-sm text-gray-600">{orderDetails.customerEmail}</p>
+                  <p className="font-medium">
+                    {currentOrder.userId?.firstName || "Customer"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {currentOrder.userId?.email}
+                  </p>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Phone className="h-4 w-4" />
-                    {orderDetails.customerPhone}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {orderDetails.deliveryAddress}
+                <div className="flex items-start gap-4 text-sm text-gray-600">
+                  <div className="flex items-start gap-1">
+                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span className="break-words">
+                      {currentOrder.deliveryAddress}
+                    </span>
                   </div>
                 </div>
-                {orderDetails.specialInstructions && (
+                {currentOrder.deliveryInstructions && (
                   <div className="text-sm">
                     <span className="font-medium">Special Instructions: </span>
-                    <span className="text-gray-600">{orderDetails.specialInstructions}</span>
+                    <span className="text-gray-600">
+                      {currentOrder.deliveryInstructions}
+                    </span>
                   </div>
                 )}
               </div>
@@ -183,22 +223,28 @@ export function OrderDetailsModal({ isOpen, onClose, order, onUpdateStatus }: Or
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Order Items</h3>
             <div className="space-y-3">
-              {orderDetails.items.map((item) => (
-                <div key={item.id} className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
+              {currentOrder.items.map((item, index) => (
+                <div
+                  key={item.product._id || index}
+                  className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg"
+                >
                   <img
-                    src={item.image || "/placeholder.svg"}
-                    alt={item.name}
+                    src={item.product.image || "/placeholder.svg"}
+                    alt={item.product.name}
                     className="h-12 w-12 rounded object-cover"
                   />
                   <div className="flex-1">
-                    <p className="font-medium">{item.name}</p>
+                    <p className="font-medium">{item.product.name}</p>
                     <p className="text-sm text-gray-600">
-                      ${item.price.toFixed(2)} {item.unit}
+                      ₦{item.product.price.toFixed(2)}{" "}
+                      {item.product.unit || "each"}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">Qty: {item.quantity}</p>
-                    <p className="text-sm text-gray-600">${(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">
+                      ₦{(item.product.price * item.quantity).toFixed(2)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -211,52 +257,92 @@ export function OrderDetailsModal({ isOpen, onClose, order, onUpdateStatus }: Or
             <div className="bg-gray-50 p-4 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span>${orderDetails.subtotal.toFixed(2)}</span>
+                <span>₦{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Delivery Fee</span>
-                <span>${orderDetails.deliveryFee.toFixed(2)}</span>
+                <span>₦{deliveryFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Tax</span>
-                <span>${orderDetails.tax.toFixed(2)}</span>
+                <span>₦{tax.toFixed(2)}</span>
               </div>
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>Total</span>
-                <span>${orderDetails.total.toFixed(2)}</span>
+                <span>₦{total.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          {/* Preparation Time */}
-          {orderDetails.estimatedPreparationTime &&
-            orderDetails.status !== "Completed" &&
-            orderDetails.status !== "Cancelled" && (
+          {/* Status Info */}
+          {currentOrder.status !== "delivered" &&
+            currentOrder.status !== "cancelled" && (
               <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <Clock className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="font-medium text-blue-800">Estimated Preparation Time</p>
-                  <p className="text-sm text-blue-600">{orderDetails.estimatedPreparationTime}</p>
+                  <p className="font-medium text-blue-800">Order Status</p>
+                  <p className="text-sm text-blue-600">
+                    {currentOrder.status === "pending" &&
+                      "Awaiting confirmation"}
+                    {/* {currentOrder.status === "confirmed" && "Order confirmed"} */}
+                    {/* {currentOrder.status === "packed" && "Being processed"} */}
+                    {currentOrder.status === "packed" && "Being packed"}
+                    {currentOrder.status === "out-for-delivery" &&
+                      "Out for delivery"}
+                  </p>
                 </div>
               </div>
             )}
         </div>
 
+        {/* Footer Buttons */}
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          {orderDetails.status !== "Completed" && orderDetails.status !== "Cancelled" && (
+          {currentOrder.status === "pending" && (
             <>
-              <Button variant="outline" onClick={handleCancelOrder} className="text-red-600 hover:text-red-700">
-                Cancel Order
+              <AlertDialog
+                open={showCancelDialog}
+                onOpenChange={setShowCancelDialog}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700"
+                    disabled={isUpdating}
+                  >
+                    Cancel Order
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel Order</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to cancel this order? This action
+                      cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>No, keep order</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancelOrder}
+                      className="bg-red-600 hover:bg-red-700"
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Cancelling..." : "Yes, cancel order"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button onClick={handleStatusUpdate} disabled={isUpdating}>
+                {isUpdating ? "Updating..." : "Mark as Packed"}
               </Button>
-              {nextStatus && <Button onClick={handleStatusUpdate}>Mark as {nextStatus}</Button>}
             </>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

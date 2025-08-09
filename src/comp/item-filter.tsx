@@ -8,31 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-const categories = [
-  { id: "all", name: "All Items", count: 120 },
-  { id: "fruits", name: "Fruits", count: 15 },
-  { id: "vegetables", name: "Vegetables", count: 18 },
-  { id: "meat", name: "Meat & Poultry", count: 12 },
-  { id: "seafood", name: "Seafood", count: 8 },
-  { id: "dairy", name: "Dairy & Eggs", count: 10 },
-  { id: "bakery", name: "Bakery", count: 14 },
-  { id: "beverages", name: "Beverages", count: 20 },
-  { id: "snacks", name: "Snacks & Candy", count: 16 },
-  { id: "frozen", name: "Frozen Foods", count: 12 },
-  { id: "pantry", name: "Pantry Staples", count: 25 },
-  { id: "health", name: "Health & Beauty", count: 8 },
-  { id: "household", name: "Household Items", count: 15 },
-  { id: "baby", name: "Baby Care", count: 6 },
-  { id: "pet", name: "Pet Supplies", count: 5 },
-]
+
+interface Category {
+  id: string
+  name: string
+  count: number
+}
 
 interface ItemFilterProps {
+  categories: Category[]
   selectedCategories: string[]
   onCategoryChange: (categories: string[]) => void
   onClearFilters: () => void
 }
 
-export function ItemFilter({ selectedCategories, onCategoryChange, onClearFilters }: ItemFilterProps) {
+export function ItemFilter({ categories, selectedCategories, onCategoryChange, onClearFilters }: ItemFilterProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const handleCategoryToggle = (categoryId: string) => {

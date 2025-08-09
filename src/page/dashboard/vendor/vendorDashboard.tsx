@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import {
@@ -15,6 +16,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { socket } from "@/utils/socket";
 import { AddEditItemModal } from "@/comp/add-edit-item-modal";
 import { OrderDetailsModal } from "@/comp/order-details-modal";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getOrdersByVendorId } from "@/service/orderService";
+import { useNavigate } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -43,43 +47,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-// Mock data for orders
-const initialOrders = [
-  {
-    id: "ORD-001",
-    customer: "John Doe",
-    date: "2023-06-16",
-    items: 5,
-    total: 34.95,
-    status: "Pending",
-  },
-  {
-    id: "ORD-002",
-    customer: "Jane Smith",
-    date: "2023-06-15",
-    items: 3,
-    total: 21.47,
-    status: "Completed",
-  },
-  {
-    id: "ORD-003",
-    customer: "Robert Johnson",
-    date: "2023-06-15",
-    items: 7,
-    total: 52.3,
-    status: "Pending",
-  },
-];
-
-// Mock data for revenue and orders by date filter
-const revenueData = {
-  today: { revenue: 234.5, orders: 12 },
-  week: { revenue: 1567.8, orders: 89 },
-  month: { revenue: 4890.25, orders: 342 },
-  year: { revenue: 12450.75, orders: 1456 },
-  total: { revenue: 15678.9, orders: 1789 },
-};
+import { getVendorProfile } from "@/service/profileService";
+import { SupermarketSettingsModal } from "@/comp/supermarket-settings-modal";
+import { getVendorDashboard } from "@/service/dashboardService";
+import { logoutUser } from "@/service/authService";
 
 // Define the supermarket type
 interface Supermarket {
@@ -87,14 +58,61 @@ interface Supermarket {
   name?: string;
   address?: string;
   status?: string;
-  opentime?: string;
-  closetime?: string;
+  openTime?: string;
+  closeTime?: string;
   description?: string;
-  pendingOrders?: number;
   ownerId?: string;
+  image?: string;
+  autoSchedule?: {
+    enabled: boolean;
+    monday: { open: string; close: string; closed: boolean };
+    tuesday: { open: string; close: string; closed: boolean };
+    wednesday: { open: string; close: string; closed: boolean };
+    thursday: { open: string; close: string; closed: boolean };
+    friday: { open: string; close: string; closed: boolean };
+    saturday: { open: string; close: string; closed: boolean };
+    sunday: { open: string; close: string; closed: boolean };
+  };
+  timezone?: string;
+  holidayMode?: boolean;
+  isOpen?: boolean;
 }
 
-// Define the product/item type based on your API response
+interface VendorOrder {
+  _id: string;
+  userId: {
+    email: string;
+    firstName: string;
+    supermarket: string;
+  };
+  items: {
+    product: any;
+    quantity: number;
+  }[];
+  totalAmount: number;
+  deliveryAddress: string;
+  deliveryInstructions: string;
+  status: string;
+  orderId: string;
+  assignedRider: string;
+  createdAt: string;
+}
+
+interface VendorProfileType {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string | number;
+  address?: string;
+  createdAt?: string;
+  businessName?: string;
+  businessPhoneNumber?: string;
+  businessDescription?: string;
+  estate?: string;
+  supermarket?: string;
+  userType?: string;
+}
 interface Product {
   _id?: string;
   id?: string;
@@ -102,34 +120,26 @@ interface Product {
   category?: string;
   price: number;
   unit?: string;
-  inStock: boolean;
-  quantity?: number;
+  stock: number;
   image?: string;
   description?: string;
-  isAvailable?: boolean
-  // Add any other fields your API returns
+  isAvailable?: boolean;
 }
 
 export default function VendorDashboard() {
-  const [dateFilter, setDateFilter] = useState("month");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [supermarket, setSupermarket] = useState<Supermarket>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Separate loading states for better UX
+  const [profileData, setProfileData] = useState<VendorProfileType>({});
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
-
+  const [supermarketSettings, setSupermarketSettings] = useState(supermarket);
   const supermarketName =
     supermarket?.name || (isLoading ? "Loading..." : "No Name");
-  const supermarketStatus = supermarket?.status || "closed";
-  const supermarketOpenTime = supermarket?.opentime || "";
-  const supermarketCloseTime = supermarket?.closetime || "";
+  const supermarketOpenTime = supermarket?.openTime || "9:00 AM";
+  const supermarketCloseTime = supermarket?.closeTime || "9:00 PM";
   const supermarketDescription = supermarket?.description || "";
   const supermarketId = supermarket?._id;
-  const pendingOrders = supermarket?.pendingOrders || 0;
   const vendorId = supermarket?.ownerId || "";
   const [isOpen, setIsOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
@@ -138,44 +148,96 @@ export default function VendorDashboard() {
   const [selectedItem, setSelectedItem] = useState<Product | null>(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [items, setItems] = useState<Product[]>([]);
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState<any>({});
+  const [dateFilter, setDateFilter] = useState("today");
+  const navigate = useNavigate();
+  const statusColors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    // confirmed: "bg-blue-100 text-blue-800 border-blue-300",
+    packed: "bg-orange-100 text-orange-800 border-orange-300",
+    "out-for-delivery": "bg-purple-100 text-purple-800 border-purple-300",
+    delivered: "bg-green-100 text-green-800 border-green-300",
+    cancelled: "bg-red-100 text-red-800 border-red-300",
+    "payment-failed": "bg-red-50 text-red-700 border-red-200",
+  };
 
-  // Debug logging
-  useEffect(() => {
-    console.log("Component state updated:", {
-      isLoading,
-      error,
-      supermarket,
-      supermarketName,
-      hasData: Object.keys(supermarket).length > 0,
-      vendorId,
-      itemsCount: items.length,
+useEffect(() => {
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket');
     });
-  }, [isLoading, error, supermarket, supermarketName, vendorId, items]);
+
+    socket.on('orderPlaced', (data: any) => {
+      const orderid = data.product.orderId
+      toast.success(`New Order ${orderid} Placed!`);
+      setOrders((previousOrders) => [ data.product, ...previousOrders])
+    });
+
+    return () => {
+      socket.off('orderPlaced');
+    };
+  }, []);
+
+  const getVendorOrder = async () => {
+    try {
+      const response = await getOrdersByVendorId(vendorId);
+      console.log("new orders", response);
+      setOrders(response);
+    } catch (error) {
+      console.error("❌ Error fetching vendor orders:", error);
+    }
+  };
 
   useEffect(() => {
-    setIsOpen(supermarketStatus === "open");
-  }, [supermarketStatus]);
+    getVendorOrder();
+  }, []);
 
   useEffect(() => {
-    getUser();
+    getProfile();
   }, []);
 
   useEffect(() => {
     getSupermarketInfo();
   }, []);
 
-  // Fixed: Only fetch products when we have a valid vendorId
   useEffect(() => {
     if (vendorId && !isLoading) {
-      console.log("Fetching products for vendor:", vendorId);
       fetchVendorProducts();
     }
   }, [vendorId, isLoading]);
 
-  const getCurrentData = () => {
-    return revenueData[dateFilter as keyof typeof revenueData];
-  };
+
+   useEffect(() => {
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+
+    socket.on('orderStatusUpdate', (data: any) => {
+      console.log('data', data)
+      const orderStatus = data.orders.status
+      let message = ''
+      // if(orderStatus === 'pending') {
+      //   message = 'Your order has been updated to pending'
+      // }else if (orderStatus === 'packed'){
+      //   message = 'Your order has been packed'
+      // }else 
+        if (orderStatus === 'out-for-delivery'){
+        message = 'Rider has picked up order, Out for delivery'
+      }else if (orderStatus === 'delivered') {
+        message = 'Order delivered, Your goods have been delivered'
+      }
+      toast.success(`${message}`);
+      getVendorOrder()
+      // setOrders((previousOrders) => [ data.product, ...previousOrders])
+    });
+
+    return () => {
+      socket.off('orderStatusUpdate');
+    };
+  }, []);
+
+
 
   const getSupermarketInfo = async () => {
     try {
@@ -192,7 +254,6 @@ export default function VendorDashboard() {
       }
       if (supermarketData && typeof supermarketData === "object") {
         setSupermarket(supermarketData);
-        console.log("Supermarket data loaded:", supermarketData);
       } else {
         setError("No supermarket data found");
       }
@@ -200,65 +261,73 @@ export default function VendorDashboard() {
       console.error("Error fetching supermarket:", error);
       setError("Failed to load supermarket data");
     } finally {
-      console.log("Setting loading to false");
       setIsLoading(false);
     }
   };
 
-  const getUser = () => {
-    try {
-      const userString = localStorage.getItem("user");
+   const logout = async () => {
+    const userId = localStorage.getItem('userId');
 
-      if (userString) {
-        const user = JSON.parse(userString);
-        setFirstName(user?.firstName || "");
-        setLastName(user?.lastName || "");
-      } else {
-        setFirstName("");
-        setLastName("");
-      }
+    if (!userId) {
+      toast.error('No user found to log out.');
+      return;
+    }
+
+    try {
+      await logoutUser(userId);
+
+      // Clean up localStorage or cookies
+      localStorage.removeItem('userId');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      toast.success('You have been logged out');
+      navigate('/');
     } catch (error) {
-      console.error("Failed to parse user from localStorage:", error);
-      setFirstName("");
-      setLastName("");
+      console.error('Logout error:', error);
+      toast.error(typeof error === 'string' ? error : 'Logout failed');
     }
   };
 
-  // const updateItem = async (productId: string, updatedItem: Product) => {
-  //   try {
-  //     const response = await updateProduct(productId, updatedItem);
-  //     if (response.status === 200) {
-  //       toast.success("Item updated successfully")
-  //       setItems( prevItems => prevItems.map(item => item._id === productId ? updatedItem : item) )
-  //     }
-  //   }catch(error) {
-  //     toast.error("Failed to update item")
-  //     console.error("Error updating item: ", error)
-  //   }
-  // }
+  const handleSettingsUpdate = (updatedSettings: any) => {
+    setSupermarketSettings(updatedSettings);
+    setIsOpen(updatedSettings.isOpen);
+    getSupermarketInfo();
+  };
+
+  const getProfile = async () => {
+    try {
+      const user = localStorage.getItem("user");
+      if (user) {
+        const userData = JSON.parse(user);
+        const vendorId = userData.id;
+        const profile = await getVendorProfile(vendorId);
+        setProfileData(profile.user);
+        console.log("profile", profile);
+        return profile;
+      }
+    } catch (error) {
+      console.error("Could not fetch vendor profile", error);
+    }
+  };
 
   const fetchVendorProducts = async () => {
     try {
       setIsLoadingProducts(true);
-      console.log("Fetching products for vendor ID:", vendorId);
       const vendorProductsRes = await getProductsByVendor(vendorId);
       let productsArray = [];
       if (vendorProductsRes && vendorProductsRes.product) {
         productsArray = vendorProductsRes.product;
-        console.log("Found products in response.product:", productsArray);
       } else if (vendorProductsRes && vendorProductsRes.products) {
         productsArray = vendorProductsRes.products;
-        console.log("Found products in response.products:", productsArray);
       } else if (vendorProductsRes && Array.isArray(vendorProductsRes)) {
         productsArray = vendorProductsRes;
-        console.log("Response is direct array:", productsArray);
       } else if (
         vendorProductsRes &&
         vendorProductsRes.data &&
         Array.isArray(vendorProductsRes.data)
       ) {
         productsArray = vendorProductsRes.data;
-        console.log("Found products in response.data:", productsArray);
       } else if (vendorProductsRes && typeof vendorProductsRes === "object") {
         const possibleArrays = [
           "product",
@@ -273,43 +342,41 @@ export default function VendorDashboard() {
             Array.isArray(vendorProductsRes[prop])
           ) {
             productsArray = vendorProductsRes[prop];
-            console.log(`Found products in response.${prop}:`, productsArray);
             break;
           }
         }
       }
 
       if (productsArray && productsArray.length > 0) {
-        const transformedProducts = productsArray.map((product: Product, index: number) => ({
-          id: product._id || product.id || index + 1,
-          _id: product._id,
-          name: product.name || "Unnamed Product",
-          category: product.category || "Uncategorized",
-          price:
-            typeof product.price === "number"
-              ? product.price
-              : parseFloat(product.price) || 0,
-          unit: product.unit || "each",
-          inStock:
-            product.isAvailable !== undefined
-              ? product.isAvailable
-              : product.inStock !== undefined
-              ? product.inStock
-              : (product.inStock || product.quantity) > 0,
-          quantity:
-            product.inStock !== undefined
-              ? product.inStock
-              : typeof product.quantity === "number"
-              ? product.quantity
-              : (product.quantity) || 0,
-          image: product.image || "/placeholder.svg?height=100&width=100",
-          description: product.description || "",
-        }));
-
-        console.log("Transformed products:", transformedProducts);
+        const transformedProducts = productsArray.map(
+          (product: Product, index: number) => ({
+            id: product._id || product.id || index + 1,
+            _id: product._id,
+            name: product.name || "Unnamed Product",
+            category: product.category || "Uncategorized",
+            price:
+              typeof product.price === "number"
+                ? product.price
+                : parseFloat(product.price) || 0,
+            unit: product.unit || "each",
+            isAvailable:
+              product.isAvailable !== undefined
+                ? product.isAvailable
+                : product.stock !== undefined
+                ? product.stock
+                : (product.stock || product.stock) > 0,
+            stock:
+              product.stock !== undefined
+                ? product.stock
+                : typeof product.stock === "number"
+                ? product.stock
+                : product.stock || 0,
+            image: product.image || "/placeholder.svg?height=100&width=100",
+            description: product.description || "",
+          })
+        );
         setItems(transformedProducts);
       } else {
-        console.log("No products found or empty array");
         setItems([]);
       }
     } catch (error) {
@@ -356,7 +423,6 @@ export default function VendorDashboard() {
       )
     );
     setSelectedItem(null);
-    // Optionally refresh the products list from the server
     fetchVendorProducts();
   };
 
@@ -384,28 +450,52 @@ export default function VendorDashboard() {
   const handleUpdateOrderStatus = (orderId: string, newStatus: string) => {
     setOrders(
       orders.map((order) =>
-        order.id === orderId ? { ...order, status: newStatus as any } : order
+        order.orderId === orderId
+          ? { ...order, status: newStatus as any }
+          : order
       )
     );
   };
 
   const handleStoreStatusChange = async (checked: boolean) => {
-    setIsOpen(checked);
+    setIsOpen(checked); // Optimistic UI update
 
     try {
-      const newStatus = checked ? "open" : "closed";
-      const updateStatusRes = await updateStatus(supermarketId, newStatus);
+      if (!supermarketId) {
+        console.error("SupermarketId is not defined");
+        return;
+      }
+
+      const updateStatusRes = await updateStatus(supermarketId, {
+        isOpen: checked,
+      });
 
       if (updateStatusRes) {
-        setSupermarket((prev) => ({ ...prev, status: newStatus }));
-        console.log(`Successfully updated status to: ${newStatus}`);
+        setSupermarket((prev) => ({ ...prev, isOpen: checked }));
       } else {
         setIsOpen(!checked);
-        console.error("Failed to update supermarket status");
+        console.error("Failed to update supermarket isOpen");
       }
     } catch (error) {
       setIsOpen(!checked);
-      console.error("Error updating supermarket status:", error);
+      console.error("Error updating supermarket isOpen:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (supermarketId) {
+      console.log("supermarketid---", supermarketId);
+      fetchDashboardStats();
+    }
+  }, [supermarketId, dateFilter]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await getVendorDashboard(supermarketId!, dateFilter);
+      console.log("📊 Dashboard stats:", res);
+      setDashboardStats(res);
+    } catch (err) {
+      console.error("❌ Error fetching dashboard stats:", err);
     }
   };
 
@@ -446,8 +536,8 @@ export default function VendorDashboard() {
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center gap-2 md:gap-4">
             <span className="text-xs sm:text-sm font-medium hidden md:block">
-              {firstName && lastName
-                ? `Welcome, ${firstName} ${lastName}`
+              {profileData.firstName && profileData.lastName
+                ? `Welcome, ${profileData.firstName} ${profileData.lastName}`
                 : "Welcome"}
             </span>
             <Button
@@ -477,7 +567,7 @@ export default function VendorDashboard() {
                 size="icon"
                 className="h-8 w-8 sm:h-10 sm:w-10"
               >
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" onClick={logout} />
                 <span className="sr-only">Logout</span>
               </Button>
             </a>
@@ -503,8 +593,8 @@ export default function VendorDashboard() {
           <div className="sm:hidden border-t border-gray-200 bg-white">
             <div className="px-4 py-2 space-y-2">
               <div className="text-sm font-medium py-2">
-                {firstName && lastName
-                  ? `Welcome, ${firstName} ${lastName}`
+                {profileData.firstName && profileData.lastName
+                  ? `Welcome, ${profileData.firstName} ${profileData.lastName}`
                   : "Welcome"}
               </div>
               <Button
@@ -534,6 +624,7 @@ export default function VendorDashboard() {
                   variant="ghost"
                   size="sm"
                   className="w-full justify-start"
+                  onClick={logout}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
@@ -557,6 +648,7 @@ export default function VendorDashboard() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 flex-shrink-0"
+                  onClick={() => setIsSettingsModalOpen(true)}
                 >
                   <Settings className="h-4 w-4" />
                   <span className="sr-only">Settings</span>
@@ -638,7 +730,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold text-green-600 truncate">
-                      ₦{getCurrentData().revenue.toFixed(2)}
+                      ₦{dashboardStats.Revenue?.toLocaleString()}
                     </span>
                   </div>
                 </CardContent>
@@ -655,7 +747,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-blue-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold">
-                      {getCurrentData().orders}
+                      {dashboardStats.Orders}
                     </span>
                   </div>
                 </CardContent>
@@ -672,10 +764,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-purple-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold truncate">
-                      ₦
-                      {(
-                        getCurrentData().revenue / getCurrentData().orders
-                      ).toFixed(2)}
+                      ₦{dashboardStats.averageOrderValue?.toFixed(2)}
                     </span>
                   </div>
                 </CardContent>
@@ -692,7 +781,7 @@ export default function VendorDashboard() {
                   <div className="flex items-center">
                     <Package className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 flex-shrink-0" />
                     <span className="text-lg sm:text-2xl font-bold">
-                      {pendingOrders}
+                      {dashboardStats["Pending Orders"]}
                     </span>
                   </div>
                 </CardContent>
@@ -709,7 +798,7 @@ export default function VendorDashboard() {
                   Inventory ({items.length})
                 </TabsTrigger>
                 <TabsTrigger value="orders" className="text-xs sm:text-sm py-2">
-                  Orders
+                  Orders({orders.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="analytics"
@@ -793,14 +882,14 @@ export default function VendorDashboard() {
                                   </p>
                                 </div>
                                 <Badge
-                                  variant={item.inStock ? "default" : "outline"}
+                                  variant={item.stock ? "default" : "outline"}
                                   className={`text-xs ${
-                                    item.inStock
-                                      ? "bg-green-600"
-                                      : "text-red-500"
+                                    item.stock ? "bg-green-600" : "text-red-500"
                                   }`}
                                 >
-                                  {item.inStock ? "In Stock" : "Out of Stock"}
+                                  {item.isAvailable
+                                    ? "In Stock"
+                                    : "Out of Stock"}
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between">
@@ -809,7 +898,7 @@ export default function VendorDashboard() {
                                     ₦{item.price.toFixed(2)}
                                   </span>
                                   <span className="text-gray-500 ml-2">
-                                    Qty: {item.quantity}
+                                    Qty: {item.stock}
                                   </span>
                                 </div>
                                 <div className="flex gap-1">
@@ -928,23 +1017,25 @@ export default function VendorDashboard() {
                               ₦{item.price.toFixed(2)}
                               {item.unit && (
                                 <span className="text-xs text-gray-500 ml-1">
-                                  /{item.unit}
+                                  /{item.unit || ""}
                                 </span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-sm">
-                              {item.quantity}
+                              {item.stock || 0}
                             </td>
                             <td className="px-4 py-3">
                               <Badge
-                                variant={item.inStock ? "default" : "outline"}
+                                variant={
+                                  item.isAvailable ? "default" : "outline"
+                                }
                                 className={`text-xs ${
-                                  item.inStock
+                                  item.isAvailable
                                     ? "bg-green-600 hover:bg-green-700"
                                     : "text-red-500 border-red-200"
                                 }`}
                               >
-                                {item.inStock ? "In Stock" : "Out of Stock"}
+                                {item.isAvailable ? "In Stock" : "Out of Stock"}
                               </Badge>
                             </td>
                             <td className="px-4 py-3">
@@ -1016,37 +1107,44 @@ export default function VendorDashboard() {
                 {/* Mobile Order Cards */}
                 <div className="block sm:hidden space-y-4">
                   {orders.map((order) => (
-                    <Card key={order.id} className="border-gray-200">
+                    <Card key={order.orderId} className="border-gray-200">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h4 className="font-medium text-sm">{order.id}</h4>
+                            <h4 className="font-medium text-sm">
+                              {order.orderId}
+                            </h4>
                             <p className="text-xs text-gray-500">
-                              {order.customer}
+                              {order.userId?.firstName || "Customer"}
                             </p>
                           </div>
                           <Badge
                             variant={
-                              order.status === "Pending" ? "outline" : "default"
+                              order.status === "pending" ? "outline" : "default"
                             }
                             className={`text-xs ${
-                              order.status === "Pending"
-                                ? "text-yellow-500 border-yellow-200"
-                                : "bg-green-600"
+                              statusColors[order.status] ??
+                              "bg-gray-100 text-gray-800 border-gray-300"
                             }`}
                           >
-                            {order.status}
-                          </Badge>
+                            {order.status.charAt(0).toUpperCase() +
+                              order.status.slice(1).replace(/-/g, " ")}
+                          </Badge>{" "}
                         </div>
+
                         <div className="flex items-center justify-between text-sm mb-3">
-                          <span className="text-gray-500">{order.date}</span>
+                          <span className="text-gray-500">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </span>
                           <span className="font-medium">
-                           ₦{order.total.toFixed(2)}
+                            ₦{order.totalAmount.toFixed(2)}
                           </span>
                         </div>
+
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">
-                            {order.items} items
+                            {order.items.length} item
+                            {order.items.length > 1 ? "s" : ""}
                           </span>
                           <Button
                             variant="outline"
@@ -1087,35 +1185,39 @@ export default function VendorDashboard() {
                     <tbody>
                       {orders.map((order) => (
                         <tr
-                          key={order.id}
+                          key={order.orderId}
                           className="border-b hover:bg-gray-50"
                         >
                           <td className="px-4 py-3 text-sm font-medium">
-                            {order.id}
+                            {order.orderId}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            {order.customer}
+                            {order.userId?.firstName || "Customer"}
                           </td>
-                          <td className="px-4 py-3 text-sm">{order.date}</td>
-                          <td className="px-4 py-3 text-sm">{order.items}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {order.items.length}
+                          </td>
                           <td className="px-4 py-3 text-sm font-medium">
-                            ₦{order.total.toFixed(2)}
+                            ₦{order.totalAmount.toFixed(2)}
                           </td>
                           <td className="px-4 py-3">
                             <Badge
                               variant={
-                                order.status === "Pending"
+                                order.status === "pending"
                                   ? "outline"
                                   : "default"
                               }
                               className={`text-xs ${
-                                order.status === "Pending"
-                                  ? "text-yellow-500 border-yellow-200"
-                                  : "bg-green-600"
+                                statusColors[order.status] ??
+                                "bg-gray-100 text-gray-800 border-gray-300"
                               }`}
                             >
-                              {order.status}
-                            </Badge>
+                              {order.status.charAt(0).toUpperCase() +
+                                order.status.slice(1).replace(/-/g, " ")}
+                            </Badge>{" "}
                           </td>
                           <td className="px-4 py-3">
                             <Button
@@ -1172,8 +1274,8 @@ export default function VendorDashboard() {
                   ...selectedItem,
                   category: selectedItem.category ?? "Uncategorized",
                   unit: selectedItem.unit ?? "unit",
-                  quantity: selectedItem.quantity ?? 0,
-                  inStock: selectedItem.inStock ?? false,
+                  stock: selectedItem.stock ?? 0,
+                  isAvailable: selectedItem.isAvailable ?? false,
                 }
               : null
           }
@@ -1190,6 +1292,13 @@ export default function VendorDashboard() {
         }}
         order={selectedOrder}
         onUpdateStatus={handleUpdateOrderStatus}
+      />
+
+      <SupermarketSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSave={handleSettingsUpdate}
+        settings={supermarketSettings}
       />
 
       <footer className="border-t border-gray-200 py-4 sm:py-6">
