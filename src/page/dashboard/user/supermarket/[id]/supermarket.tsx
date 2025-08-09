@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ArrowLeft, Clock, LogOut, Plus, Search, ShoppingBag } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,133 +6,240 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { ItemFilter } from "@/comp/item-filter"
-import { useParams } from "react-router-dom"
-// Mock data for supermarket
-const supermarket = {
-  id: 1,
-  name: "Fresh Mart",
-  description: "Your everyday grocery store with fresh produce",
-  isOpen: true,
-  openTime: "8:00 AM",
-  closeTime: "9:00 PM",
-  image: "/placeholder.svg?height=200&width=400",
-}
+import { getProductsBySupermarket } from "@/service/productService"
+import { getSupermarket} from "@/service/supermarketService";
+import { toast } from "sonner"
+import { useMemo } from "react";
+import { addToCart, fetchCart } from "@/service/cartService"
 
-// Mock data for items
-const items = [
-  {
-    id: 1,
-    name: "Fresh Apples",
-    category: "fruits",
-    categoryLabel: "Fruits",
-    price: 2.99,
-    unit: "per lb",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 2,
-    name: "Whole Wheat Bread",
-    category: "bakery",
-    categoryLabel: "Bakery",
-    price: 3.49,
-    unit: "loaf",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 3,
-    name: "Organic Milk",
-    category: "dairy",
-    categoryLabel: "Dairy",
-    price: 4.99,
-    unit: "gallon",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 4,
-    name: "Chicken Breast",
-    category: "meat",
-    categoryLabel: "Meat",
-    price: 6.99,
-    unit: "per lb",
-    inStock: false,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 5,
-    name: "Spinach",
-    category: "vegetables",
-    categoryLabel: "Vegetables",
-    price: 2.49,
-    unit: "bunch",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 6,
-    name: "Pasta",
-    category: "pantry",
-    categoryLabel: "Pantry Staples",
-    price: 1.99,
-    unit: "16 oz",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 7,
-    name: "Orange Juice",
-    category: "beverages",
-    categoryLabel: "Beverages",
-    price: 3.99,
-    unit: "64 oz",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-  {
-    id: 8,
-    name: "Potato Chips",
-    category: "snacks",
-    categoryLabel: "Snacks",
-    price: 2.49,
-    unit: "bag",
-    inStock: true,
-    image: "/placeholder.svg?height=100&width=100",
-  },
-]
 
 export default function SupermarketPage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id } = useParams<{ id: string }>()
+  interface Product {
+  _id?: string;
+  id?: string;
+  name: string;
+  category?: string;
+  price: number;
+  unit?: string;
+  stock: number;
+  quantity?: number;
+  image?: string;
+  description?: string;
+  isAvailable?: boolean
+  supermarket: string
+  ownerId?: string
+  // Add any other fields your API returns
+}
+
+  interface CartItem {
+    id: string;
+    quantity: number;
+    name: string;
+    price: number;
+    unit?: string;
+    image?: string;
+    supermarket?: string;
+  }
+
+
+interface Supermarket {
+  _id?: string;
+  name?: string;
+  address?: string;
+  status?: string;
+  openTime?: string;
+  closeTime?: string;
+  description?: string;
+  ownerId?: string;
+  image?: string;
+  autoSchedule?: {
+  enabled: boolean;
+  monday: { open: string; close: string; closed: boolean };
+  tuesday: { open: string; close: string; closed: boolean };
+  wednesday: { open: string; close: string; closed: boolean };
+  thursday: { open: string; close: string; closed: boolean };
+  friday: { open: string; close: string; closed: boolean };
+  saturday: { open: string; close: string; closed: boolean };
+  sunday: { open: string; close: string; closed: boolean };
+  };
+  timezone?: string;
+  holidayMode?: boolean;
+  isOpen?: boolean
+}
+   
+  // const { id } = useParams<{ id: string }>()
   const [searchQuery, setSearchQuery] = useState("")
-  const [cart, setCart] = useState<Array<{ id: number; quantity: number }>>([])
+  const [product, setProduct] = useState<Product[]>([])
+  const [supermarket, setSupermarket] = useState<Supermarket>({});
+   
+  const [, setCart] = useState<Array<{ id: string; quantity: number }>>
+  ([])
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const cartLength = cartItems.length
+  const [userId, setUserId] = useState<string | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
-  const filteredItems = items.filter((item) => {
+const filteredItems = useMemo(() => {
+  return product.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category)
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category || "")
     return matchesSearch && matchesCategory
   })
+}, [product, searchQuery, selectedCategories])
 
-  const addToCart = (itemId: number) => {
+const categoryCounts = useMemo(() => {
+  const counts: Record<string, number> = {}
+
+  product.forEach((item) => {
+    const category = item.category || "uncategorized"
+    counts[category] = (counts[category] || 0) + 1
+  })
+
+  return [
+    { id: "all", name: "All Items", count: product.length },
+    ...Object.entries(counts).map(([id, count]) => ({
+      id,
+      name: id.replace(/^\w/, (c) => c.toUpperCase()), 
+      count,
+    })),
+  ]
+}, [product])
+
+  useEffect(() => {
+    const storedId = localStorage.getItem("userId")
+    if (storedId) setUserId(storedId)
+  }, [])
+
+  const fetchCartData = async (userId: string) => {
+    try {
+      const response = await fetchCart(userId);
+
+       
+     const transformedItems = response.items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  .filter((item: any) => item.productId) // <-- skip null productId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  .map((item: any) => ({
+    id: item._id,
+    quantity: item.quantity,
+    name: item.productId.name,
+    price: item.productId.price,
+    unit: item.productId.unit,
+    image: item.productId.image,
+    supermarket: item.productId.Supermarket
+  }));
+      setCartItems(transformedItems);
+    } catch (error) {
+      console.error("Error fetching cart data:", error);
+    }
+  };
+
+    useEffect(() => {
+    const storedId = localStorage.getItem("userId");
+    if (storedId) {
+      setUserId(storedId);
+      fetchCartData(storedId);
+    }
+  }, []);
+
+
+
+
+const addItemsToCart = async (itemId: string) => {
+  const userId = localStorage.getItem("userId");
+  const quantity = 1;
+
+  if (!userId) {
+    toast.error("Please log in to add items to cart");
+    return;
+  }
+  const payload = {
+    userId,
+    productId: itemId,
+    quantity,
+    supermarket: supermarket._id 
+  }
+  const result = await addToCart(payload);
+  if (result.success) {
     setCart((prev) => {
-      const existingItem = prev.find((item) => item.id === itemId)
+      const existingItem = prev.find((item) => item.id === itemId);
       if (existingItem) {
-        return prev.map((item) => (item.id === itemId ? { ...item, quantity: item.quantity + 1 } : item))
+        return prev.map((item) =>
+          item.id === itemId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       } else {
-        return [...prev, { id: itemId, quantity: 1 }]
+        return [...prev, { id: itemId, quantity }];
       }
-    })
+    });
+    toast.success('Item added to cart successfully');
+    fetchCartData(userId)
+  } else {
+    toast.error('Failed to add item to cart');
+  }
+};
+
+
+
+
+  const getSupermarketPrducts = async (supermarketId: string) => {
+    try {
+      const products = await getProductsBySupermarket(supermarketId)
+      setProduct(products)
+
+    }catch (error){
+      console.error("Error getting products by supermarket Id:", error)
+    }
   }
 
-  const getItemQuantity = (itemId: number) => {
-    const item = cart.find((item) => item.id === itemId)
-    return item ? item.quantity : 0
-  }
+  useEffect(() => {
+      const supermarketId = supermarket?.ownerId
+      if (supermarketId) {
+        getSupermarketPrducts(supermarketId)
+      }
+    }, [supermarket?.ownerId])
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
+   const getSupermarketInfo = async () => {
+    try {
+      const supermarketRes = await getSupermarket();
+      let supermarketData = supermarketRes;
 
+      if (supermarketRes && supermarketRes.data) {
+        supermarketData = supermarketRes.data;
+      }
+      if (Array.isArray(supermarketData) && supermarketData.length > 0) {
+        supermarketData = supermarketData[0];
+      }
+      if (supermarketData && typeof supermarketData === "object") {
+        setSupermarket(supermarketData);
+      } else {
+        toast.error("No supermarket data found");
+      }
+    } catch (error) {
+      console.error("Error fetching supermarket:", error);
+      toast.error("Failed to load supermarket data");
+    } 
+  };
+
+    useEffect(() => {
+    getSupermarketInfo();
+  }, []);
+
+
+  // const getItemQuantity = (itemId: string) => {
+  //   const item = cart.find((item) => item.id === itemId)
+  //   return item ? item.quantity : 0
+  // }
+
+  const totalItems = cartLength
+
+  const supermarketName = supermarket?.name ||"No Name";
+  const supermarketOpenTime = supermarket?.openTime || "9:00 AM";
+  const supermarketCloseTime = supermarket?.closeTime || "9:00 PM";
+  const supermarketDescription = supermarket?.description || "";
+  const supermarketStatus = supermarket?.isOpen || false
+  const supermarketImage = supermarket?.image || "/placeholder.svg?height=100&width=200";
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-200">
@@ -144,19 +251,19 @@ export default function SupermarketPage() {
                 <span className="sr-only">Back</span>
               </Button>
             </a>
-            <h1 className="text-xl font-bold tracking-tight">{supermarket.name} {supermarket.id}</h1>
+            <h1 className="text-xl font-bold tracking-tight">{supermarketName}</h1>
             <Badge
-              variant={supermarket.isOpen ? "default" : "outline"}
-              className={supermarket.isOpen ? "bg-green-600" : "text-gray-500"}
+              variant={supermarketStatus ? "default" : "outline"}
+              className={supermarketStatus ? "bg-green-600" : "text-gray-500"}
             >
-              {supermarket.isOpen ? "Open" : "Closed"}
+              {supermarketStatus ? "Open" : "Closed"}
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/cart">
+            <a href={`/cart/${userId}`}>
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <ShoppingBag className="h-4 w-4" />
-                <span>Cart{id} ({totalItems})</span>
+                <span>Cart ({totalItems})</span>
               </Button>
             </a>
             <a href="/">
@@ -172,16 +279,16 @@ export default function SupermarketPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center gap-4">
           <img
-            src={supermarket.image || "/placeholder.svg"}
-            alt={supermarket.name}
+            src={supermarketImage}
+            alt={supermarketName}
             className="h-[100px] w-[200px] rounded-md object-cover"
           />
           <div>
-            <h2 className="text-2xl font-bold">{supermarket.name}</h2>
-            <p className="text-gray-600">{supermarket.description}</p>
+            <h2 className="text-2xl font-bold">{supermarketName}</h2>
+            <p className="text-gray-600">{supermarketDescription}</p>
             <div className="mt-1 flex items-center text-sm text-gray-500">
               <Clock className="mr-1 h-4 w-4" />
-              {supermarket.openTime} - {supermarket.closeTime}
+              {supermarketOpenTime} - {supermarketCloseTime}
             </div>
           </div>
         </div>
@@ -189,7 +296,7 @@ export default function SupermarketPage() {
         <Separator className="my-6" />
 
         <div>
-          <h3 className="mb-4 text-xl font-bold">Available Items</h3>
+          {/* <h3 className="mb-4 text-xl font-bold">Available Items</h3> */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
@@ -201,11 +308,12 @@ export default function SupermarketPage() {
           </div>
 
           <div className="mb-6">
-            <ItemFilter
-              selectedCategories={selectedCategories}
-              onCategoryChange={setSelectedCategories}
-              onClearFilters={() => setSelectedCategories([])}
-            />
+        <ItemFilter
+          categories={categoryCounts}
+          selectedCategories={selectedCategories}
+          onCategoryChange={setSelectedCategories}
+          onClearFilters={() => setSelectedCategories([])}
+        />
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -220,13 +328,13 @@ export default function SupermarketPage() {
                 </CardContent>
                 <CardContent className="p-4">
                   <h4 className="font-medium">{item.name}</h4>
-                  <p className="text-sm text-gray-500">{item.categoryLabel}</p>
+                  <p className="text-sm text-gray-500">{item.category}</p>
                   <div className="mt-2 flex items-center justify-between">
                     <div>
-                      <span className="font-medium">${item.price.toFixed(2)}</span>
+                      <span className="font-medium">₦{item.price.toFixed(2)}</span>
                       <span className="text-xs text-gray-500"> / {item.unit}</span>
                     </div>
-                    {!item.inStock && (
+                    {!item.stock && (
                       <Badge variant="outline" className="text-red-500">
                         Out of stock
                       </Badge>
@@ -234,19 +342,11 @@ export default function SupermarketPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="p-4 pt-0">
-                  {getItemQuantity(item.id) > 0 ? (
-                    <div className="flex w-full items-center justify-between">
-                      <span className="font-medium">Qty: {getItemQuantity(item.id)}</span>
-                      <Button onClick={() => addToCart(item.id)} disabled={!item.inStock} size="sm">
-                        Add More
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button onClick={() => addToCart(item.id)} className="w-full" disabled={!item.inStock}>
+                    <Button onClick={() => addItemsToCart(item._id!)} className="w-full" disabled={!item.stock}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add to Cart
                     </Button>
-                  )}
+          
                 </CardFooter>
               </Card>
             ))}

@@ -32,6 +32,16 @@ const getProducts = async () => {
     }
 }
 
+const getProductsBySupermarket = async (id: string) => {
+    try{
+        const response = await axios.get(`${API_ENDPOINTS.PRODUCTS}/supermarket/${id}`)
+        return response.data;
+    }catch (error) {
+        console.error('Error fetching products by supermarket Id:', error)
+        return [];
+    }
+}
+
 const getProductsByVendor = async (id: string) => {
     try {
         const response = await axios.get(`${API_ENDPOINTS.PRODUCTS}/vendor/${id}`)
@@ -70,4 +80,4 @@ const deleteProduct = async (id: string) => {
     }
 }   
 
-export { createProduct, getProductsByVendor, getProductsById, getProducts, updateProduct, deleteProduct }
+export { createProduct, getProductsByVendor, getProductsById, getProducts, updateProduct, deleteProduct, getProductsBySupermarket }

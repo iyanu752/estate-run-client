@@ -28,9 +28,8 @@ interface Item {
   category?: string
   price: number
   unit?: string
-  quantity: number
   description?: string
-  inStock?: boolean
+  stock?: number
   image?: string
   ownerId?: string
   isAvailable?: boolean
@@ -86,10 +85,10 @@ export function AddEditItemModal({ isOpen, onClose, onSave, item, mode, ownerId 
     category: "",
     price: 0,
     unit: "",
-    quantity: 0,
     description: "",
-    inStock: true,
+    stock: 0,
     image: "",
+    isAvailable: true
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -102,10 +101,10 @@ export function AddEditItemModal({ isOpen, onClose, onSave, item, mode, ownerId 
         category: "",
         price: 0,
         unit: "",
-        quantity: 0,
         description: "",
-        inStock: true,
+        stock: 0,
         image: "",
+        isAvailable: true
       })
     }
   }, [item, mode, isOpen])
@@ -130,8 +129,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       category: formData.category,
       description: formData.description,
       price: formData.price,
-      isAvailable: formData.inStock,
-      stock: formData.quantity,
+      isAvailable: formData.isAvailable,
+      stock: formData.stock,
       image: formData.image,
       unit: formData.unit,
       ownerId: ownerId, // this should come from context or props
@@ -269,13 +268,13 @@ const handleSubmit = async (e: React.FormEvent) => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity in Stock</Label>
+              <Label htmlFor="stock">Quantity in Stock</Label>
               <Input
-                id="quantity"
+                id="stock"
                 type="number"
                 min="0"
-                value={formData.quantity}
-                onChange={(e) => handleInputChange("quantity", Number.parseInt(e.target.value) || 0)}
+                value={formData.stock}
+                onChange={(e) => handleInputChange("stock", Number.parseInt(e.target.value) || 0)}
                 placeholder="0"
               />
             </div>
@@ -296,15 +295,15 @@ const handleSubmit = async (e: React.FormEvent) => {
           {/* Availability */}
           <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
             <div>
-              <Label htmlFor="inStock" className="text-base font-medium">
+              <Label htmlFor="isAvailable" className="text-base font-medium">
                 Available for Sale
               </Label>
               <p className="text-sm text-gray-500">Toggle to make this item available or unavailable to customers</p>
             </div>
             <Switch
-              id="inStock"
-              checked={formData.inStock}
-              onCheckedChange={(checked) => handleInputChange("inStock", checked)}
+              id="isAvailable"
+              checked={formData.isAvailable}
+              onCheckedChange={(checked) => handleInputChange("isAvailable", checked)}
             />
           </div>
 

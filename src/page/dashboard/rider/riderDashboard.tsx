@@ -1,184 +1,464 @@
-import { CheckCircle, Clock, LogOut, MapPin, Package, Star, Truck, User } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  CheckCircle,
+  Clock,
+  LogOut,
+  MapPin,
+  Package,
+  Star,
+  Truck,
+  User,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAllOrders } from "@/service/orderService";
+import { useEffect, useState } from "react";
+import { socket } from "@/utils/socket";
+import {
+  getOrderHistory,
+  assignToRider,
+  updateOrderStatus,
+} from "@/service/orderService";
+import { OrderDetailsModal } from "@/comp/order-details-modal";
 // import { RevenueFilter } from "@/components/revenue-filter"
-
+import { verifyOrderCode } from "@/service/orderService";
+import { toast } from "sonner";
+import { getRiderDashboard } from "@/service/dashboardService";
+import { useNavigate } from "react-router-dom";
+import { logoutUser } from "@/service/authService";
 // Mock data for rider stats
-const riderStats = {
-  totalDeliveries: 156,
-  todayDeliveries: 8,
-  pendingDeliveries: 3,
-  rating: 4.8,
-  revenue: {
-    total: 2340.5,
-    today: 45.6,
-    thisWeek: 234.8,
-    thisMonth: 890.4,
-    thisYear: 2340.5,
-  },
+
+
+// Mock data for orders
+interface Orders {
+  _id: string;
+  userId: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    supermarket: string;
+    address: string;
+    phone: string;
+  };
+  supermarketId?: string;
+  items: {
+    product: any;
+    quantity: number;
+  }[];
+  totalAmount: number;
+  deliveryAddress: string;
+  deliveryInstructions?: string;
+  status?: string;
+  paymentReference?: string;
+  paymentStatus?: string;
+  assignedRider?: string;
+  orderId?: string;
+  verificationCode: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Mock data for pending deliveries
-const pendingDeliveries = [
-  {
-    id: "DEL-001",
-    orderId: "ORD-001",
-    customer: "John Doe",
-    address: "123 Estate Ave, Block A",
-    items: 5,
-    amount: 34.95,
-    distance: "0.8 km",
-    estimatedTime: "15 min",
-    status: "Ready for pickup",
-  },
-  {
-    id: "DEL-002",
-    orderId: "ORD-005",
-    customer: "Jane Smith",
-    address: "456 Estate Blvd, Block B",
-    items: 3,
-    amount: 21.47,
-    distance: "1.2 km",
-    estimatedTime: "20 min",
-    status: "Ready for pickup",
-  },
-  {
-    id: "DEL-003",
-    orderId: "ORD-008",
-    customer: "Robert Johnson",
-    address: "789 Estate St, Block C",
-    items: 7,
-    amount: 52.3,
-    distance: "0.5 km",
-    estimatedTime: "10 min",
-    status: "In progress",
-  },
-]
+interface RiderStats {
+  totalDeliveries: number;
+  todayDeliveries: number;
+  pendingDeliveries: number;
+  rating: number;
+}
 
-// Mock data for delivery history
-const deliveryHistory = [
-  {
-    id: "DEL-100",
-    orderId: "ORD-100",
-    customer: "Sarah Williams",
-    address: "321 Estate Rd, Block D",
-    items: 4,
-    amount: 28.75,
-    deliveryFee: 3.5,
-    completedAt: "2023-06-16 14:30",
-    rating: 5,
-  },
-  {
-    id: "DEL-099",
-    orderId: "ORD-099",
-    customer: "Michael Brown",
-    address: "654 Estate Way, Block A",
-    items: 6,
-    amount: 41.2,
-    deliveryFee: 4.0,
-    completedAt: "2023-06-16 13:15",
-    rating: 4,
-  },
-  {
-    id: "DEL-098",
-    orderId: "ORD-098",
-    customer: "Lisa Davis",
-    address: "987 Estate Circle, Block B",
-    items: 2,
-    amount: 15.6,
-    deliveryFee: 2.5,
-    completedAt: "2023-06-16 12:00",
-    rating: 5,
-  },
-]
+
+// Verification Modal Component
+const VerificationModal = ({
+  isOpen,
+  onClose,
+  onVerify,
+  orderId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onVerify: (orderId: string, code: string) => void;
+  orderId: string;
+}) => {
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    if (!token.trim()) {
+      setError("Please enter the verification token");
+      return;
+    }
+    onVerify(orderId, token);
+    setToken("");
+    setError("");
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Delivery Verification</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <p className="text-sm text-gray-600 mb-4">
+          Please enter the verification token provided by the customer for order
+          #{orderId}
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Verification Token
+            </label>
+            <input
+              type="text"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter 6-digit token"
+              maxLength={6}
+            />
+            {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleSubmit} className="flex-1">
+              Verify & Complete
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function RiderDashboard() {
-  // const [revenueFilter, setRevenueFilter] = useState("today")
+  const [orders, setOrders] = useState<Orders[]>([]);
+  const [orderHistory, setOrderHistory] = useState<Orders[]>([]);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isOrderDetailsModalOpen, setIsOrderDetailsModalOpen] = useState(false);
+   const navigate = useNavigate();
+  const [riderStats, setRiderStats] = useState<RiderStats>({
+  totalDeliveries: 0,
+  todayDeliveries: 0,
+  pendingDeliveries: 0,
+  rating: 0.0
+});
 
-  const acceptDelivery = (deliveryId: string) => {
-    console.log("Accepting delivery:", deliveryId)
-    // In a real app, this would update the delivery status
+  const statusColors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    // confirmed: "bg-blue-100 text-blue-800 border-blue-300",
+    packed: "bg-orange-100 text-orange-800 border-orange-300",
+    "out-for-delivery": "bg-purple-100 text-purple-800 border-purple-300",
+    delivered: "bg-green-100 text-green-800 border-green-300",
+    cancelled: "bg-red-100 text-red-800 border-red-300",
+    "payment-failed": "bg-red-50 text-red-700 border-red-200",
+  };
+
+  const getOrders = async () => {
+    const allOrders = await getAllOrders();
+    // Filter out delivered orders for pending section
+    const pendingOrders = allOrders.filter((order: Orders) => order.status !== "delivered");
+    setOrders(pendingOrders);
+  };
+
+  useEffect(() => {
+    getOrders();
+  }, []);
+
+  useEffect(() => {
+      socket.on('connect', () => {
+        console.log('Connected to WebSocket');
+      });
+  
+      socket.on('orderPlaced', (data: any) => {
+        const orderid = data.product.orderId
+        toast.success(`New Order ${orderid} Placed!`);
+        setOrders((previousOrders) => [ data.product, ...previousOrders])
+      });
+  
+      return () => {
+        socket.off('orderPlaced');
+      };
+    }, []);
+
+
+    useEffect(() => {
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+
+    socket.on('orderStatusUpdate', (data: any) => {
+      console.log('data', data)
+      const orderStatus = data.orders.status
+      let message = ''
+      // if(orderStatus === 'pending') {
+      //   message = 'Your order has been updated to pending'
+      // }else
+         if (orderStatus === 'packed'){
+        message = `Order ${data.orders.orderId} has been packed, proceed to pickup`
+      // }else if (orderStatus === 'out-for-delivery'){
+      //   message = ''
+      }else if (orderStatus === 'delivered') {
+        message = 'Order delivered, Good Job'
+      }
+      toast.success(`${message}`);
+      getOrders()
+      // setOrders((previousOrders) => [ data.product, ...previousOrders])
+    });
+
+    return () => {
+      socket.off('orderStatusUpdate');
+    };
+  }, []);
+
+
+
+    const logout = async () => {
+    const userId = localStorage.getItem('userId');
+
+    if (!userId) {
+      toast.error('No user found to log out.');
+      return;
+    }
+
+    try {
+      await logoutUser(userId);
+
+      // Clean up localStorage or cookies
+      localStorage.removeItem('userId');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      toast.success('You have been logged out');
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error(typeof error === 'string' ? error : 'Logout failed');
+    }
+  };
+
+  const fetchDashboard = async () => {
+    const riderId = localStorage.getItem("userId");
+    if (!riderId) {
+      return;
+    }
+    try {
+      const response = await getRiderDashboard(riderId);
+      if (response) {
+        console.log('response', response)
+        setRiderStats({
+          totalDeliveries: response.totalDeliveries || 0,
+          todayDeliveries: response.todayDeliveries || 0,
+          pendingDeliveries: response.pendingDeliveries || 0,
+          rating: response.rating || 0.0
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch rider dashboard:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+
+  const getOrdersHistory = async () => {
+    try {
+      const riderId = localStorage.getItem("userId");
+      if (!riderId) return;
+      const orders = await getOrderHistory(riderId);
+      // Only show delivered orders in history
+      const deliveredOrders = orders.filter((order: Orders) => order.status === "delivered");
+      setOrderHistory(deliveredOrders);
+      console.log("Order history:", deliveredOrders);
+    } catch (error) {
+      console.error("Failed to fetch rider order history", error);
+    }
+  };
+
+  useEffect(() => {
+    getOrdersHistory();
+  }, []);
+
+  const verifyDelivery = async (orderId: string, code: string) => {
+    const orderVerify = await verifyOrderCode(orderId, code);
+    if(orderVerify.success){
+      toast.success("Delivery verified successfully")
+      await updateOrderStatus(orderId, "delivered")
+      setShowVerificationModal(false);
+      setSelectedOrderId("")
+      // Refresh both lists to move delivered item from pending to history
+      getOrders()
+      getOrdersHistory()
+    }else {
+      toast.error("Failed to verify the delivery")
+    }
   }
+
+  const handleOrderDetailsClick = (order: any) => {
+    setSelectedOrder(order);
+    setIsOrderDetailsModalOpen(true);
+  };
+
+  const acceptDelivery = (orderId: string) => {
+    assignRiderOrder(orderId);
+    console.log("Accepting delivery:", orderId);
+  };
+
+  const assignRiderOrder = async (orderId: string) => {
+    try {
+      const riderId = localStorage.getItem("userId");
+      if (!riderId) {
+        return;
+      }
+      await assignToRider(orderId, riderId);
+      orders.map((order) => {
+        if (order.orderId === orderId) {
+          updateStatus(orderId, "out-for-delivery");
+        }
+      });
+    } catch (error) {
+      console.error("Failed to assign order to rider", error);
+    }
+  };
+
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await updateOrderStatus(orderId, newStatus);
+      orders.map((order) => {
+        if (order.orderId === orderId) {
+          order.status = newStatus;
+        }
+      });
+      getOrders();
+    } catch (error) {
+      console.error("Failed to update order status", error);
+    }
+  };
 
   const completeDelivery = (deliveryId: string) => {
-    console.log("Completing delivery:", deliveryId)
-    // In a real app, this would mark the delivery as completed
-  }
+    console.log("Completing delivery:", deliveryId);
+  };
+
+  const markAsOutForDelivery = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setShowVerificationModal(true);
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-200">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <h1 className="text-xl font-bold tracking-tight">Estate Run</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Welcome, Rider</span>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+            Estate Run
+          </h1>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm font-medium hidden sm:block">
+              Welcome, Rider
+            </span>
             <a href="/profile/rider">
               <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
+                <User className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="sr-only">Profile</span>
               </Button>
             </a>
-            <a href="/">
-              <Button variant="ghost" size="icon">
-                <LogOut className="h-5 w-5" />
+              <Button variant="ghost" size="icon" onClick={logout}>
+                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="sr-only">Logout</span>
               </Button>
-            </a>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <h2 className="mb-6 text-2xl font-bold">Rider Dashboard</h2>
+      <main className="container mx-auto px-4 py-4 sm:py-8">
+        <h2 className="mb-4 sm:mb-6 text-xl sm:text-2xl font-bold">
+          Rider Dashboard
+        </h2>
 
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {/* <RevenueFilter data={riderStats.revenue} onFilterChange={setRevenueFilter} /> */}
+        <div className="mb-6 sm:mb-8 grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="border-black/10">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">Total Deliveries</CardTitle>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
+                Total Deliveries
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
+            <CardContent className="p-3 sm:p-4 pt-0">
               <div className="flex items-center">
-                <Package className="mr-2 h-5 w-5 text-gray-400" />
-                <span className="text-2xl font-bold">{riderStats.totalDeliveries}</span>
+                <Package className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                <span className="text-lg sm:text-2xl font-bold">
+                  {orderHistory.length}
+                </span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-black/10">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">Today's Deliveries</CardTitle>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
+                Today's Deliveries
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
+            <CardContent className="p-3 sm:p-4 pt-0">
               <div className="flex items-center">
-                <CheckCircle className="mr-2 h-5 w-5 text-green-400" />
-                <span className="text-2xl font-bold">{riderStats.todayDeliveries}</span>
+                <CheckCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-green-400" />
+                <span className="text-lg sm:text-2xl font-bold">
+                  {riderStats.todayDeliveries}
+                </span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-black/10">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">Pending</CardTitle>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
+                Pending
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
+            <CardContent className="p-3 sm:p-4 pt-0">
               <div className="flex items-center">
-                <Clock className="mr-2 h-5 w-5 text-yellow-400" />
-                <span className="text-2xl font-bold">{riderStats.pendingDeliveries}</span>
+                <Clock className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
+                <span className="text-lg sm:text-2xl font-bold">
+                  {orders.length}
+                </span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-black/10">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">Rating</CardTitle>
+            <CardHeader className="p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-gray-500">
+                Rating
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 pt-0">
+            <CardContent className="p-3 sm:p-4 pt-0">
               <div className="flex items-center">
-                <Star className="mr-2 h-5 w-5 text-yellow-400" />
-                <span className="text-2xl font-bold">{riderStats.rating}</span>
+                <Star className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
+                <span className="text-lg sm:text-2xl font-bold">
+                  {riderStats.rating}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -186,56 +466,109 @@ export default function RiderDashboard() {
 
         <Tabs defaultValue="pending" className="w-full">
           <TabsList className="mb-4 grid w-full grid-cols-2">
-            <TabsTrigger value="pending">Pending Deliveries</TabsTrigger>
-            <TabsTrigger value="history">Delivery History</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs sm:text-sm">
+              Pending ({orders.length})
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs sm:text-sm">
+              History ({orderHistory.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="border-none p-0">
-            <h3 className="mb-4 text-lg font-bold">Available Deliveries</h3>
+            <h3 className="mb-4 text-base sm:text-lg font-bold">
+              Available Deliveries
+            </h3>
 
             <div className="space-y-4">
-              {pendingDeliveries.map((delivery) => (
-                <Card key={delivery.id} className="border-black/10">
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex items-center justify-between">
+              {orders.map((order) => (
+                <Card key={order.orderId} className="border-black/10">
+                  <CardHeader className="p-3 sm:p-4 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <CardTitle className="text-lg">{delivery.customer}</CardTitle>
-                        <p className="text-sm text-gray-500">Order #{delivery.orderId}</p>
+                        <CardTitle className="text-sm sm:text-lg">{`${order.userId.firstName} ${order.userId.lastName}`}</CardTitle>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                          #{order.orderId}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-800">
+                          Verification code •{" "}
+                          <span className="font-bold">
+                            {order.verificationCode
+                              ? "*****" + order.verificationCode.slice(-1)
+                              : "******"}
+                          </span>
+                        </p>
                       </div>
                       <Badge
-                        variant={delivery.status === "In progress" ? "default" : "outline"}
-                        className={delivery.status === "In progress" ? "bg-blue-600" : "text-gray-500"}
+                        variant="outline"
+                        className={`${
+                          statusColors[order.status ?? "pending"] ||
+                          "bg-gray-100 text-gray-800 border-gray-300"
+                        } text-xs self-start sm:self-center`}
                       >
-                        {delivery.status}
+                        {order.status}
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="flex items-center text-sm">
-                        <MapPin className="mr-2 h-4 w-4 text-gray-400" />
-                        {delivery.address}
+                  <CardContent className="p-3 sm:p-4 pt-0">
+                    <div className="grid gap-2">
+                      <div className="flex items-start text-xs sm:text-sm">
+                        <MapPin className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span className="break-words">
+                          {order.deliveryAddress}
+                        </span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <Package className="mr-2 h-4 w-4 text-gray-400" />
-                        {delivery.items} items • ${delivery.amount}
+                      <div className="flex items-center text-xs sm:text-sm">
+                        <Package className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
+                        {order.items.length} items • ₦{order.totalAmount}
                       </div>
-                      <div className="flex items-center text-sm">
-                        <Truck className="mr-2 h-4 w-4 text-gray-400" />
-                        {delivery.distance} • {delivery.estimatedTime}
+                      <div className="flex items-center text-xs sm:text-sm">
+                        <Truck className="mr-2 h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
+                        Delivery fee: ₦500
                       </div>
                     </div>
-                    <div className="mt-4 flex gap-2">
-                      {delivery.status === "Ready for pickup" ? (
-                        <Button onClick={() => acceptDelivery(delivery.id)} size="sm">
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                      {order.status === "packed" ||
+                      order.status === "pending" ? (
+                        <Button
+                          onClick={() =>
+                            order.orderId && acceptDelivery(order.orderId)
+                          }
+                          size="sm"
+                          disabled={!order.orderId}
+                          className="w-full sm:w-auto text-xs sm:text-sm"
+                        >
                           Accept Delivery
                         </Button>
-                      ) : (
-                        <Button onClick={() => completeDelivery(delivery.id)} size="sm">
+                      ) : order.status === "out-for-delivery" ? (
+                        <Button
+                          onClick={() =>
+                            order.orderId && markAsOutForDelivery(order.orderId)
+                          }
+                          size="sm"
+                          disabled={!order.orderId}
+                          className="w-full sm:w-auto text-xs sm:text-sm"
+                        >
                           Mark as Delivered
                         </Button>
+                      ) : (
+                        <Button
+                          onClick={() =>
+                            order.orderId && completeDelivery(order.orderId)
+                          }
+                          size="sm"
+                          disabled={!order.orderId}
+                          hidden = {order.status === "delivered"}
+                          className="w-full sm:w-auto text-xs sm:text-sm"
+                        >
+                          Mark as Out-For-Delivery
+                        </Button>
                       )}
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto text-xs sm:text-sm"
+                        onClick={() => handleOrderDetailsClick(order)}
+                      >
                         View Details
                       </Button>
                     </div>
@@ -246,34 +579,105 @@ export default function RiderDashboard() {
           </TabsContent>
 
           <TabsContent value="history" className="border-none p-0">
-            <h3 className="mb-4 text-lg font-bold">Recent Deliveries</h3>
+            <h3 className="mb-4 text-base sm:text-lg font-bold">
+              Delivered Orders
+            </h3>
 
-            <div className="overflow-x-auto rounded-md border border-gray-200">
+            {/* Mobile-friendly card layout for small screens */}
+            <div className="block sm:hidden space-y-3">
+              {orderHistory.map((history) => (
+                <Card key={history.orderId} className="border-black/10">
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-sm">
+                            {`${history.userId.firstName} ${history.userId.lastName}`}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            #{history.orderId}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="bg-green-100 text-green-800 border-green-300 text-xs"
+                        >
+                          delivered
+                        </Badge>
+                      </div>
+                      
+                      <div className="text-xs text-gray-600">
+                        <p className="truncate">{history.deliveryAddress}</p>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="text-xs">
+                          <p className="font-medium">₦{history.totalAmount}</p>
+                          <p className="text-green-600">Delivery Fee: ₦500</p>
+                        </div>
+                        <div className="text-right text-xs">
+                          <p>{formatDate(history.updatedAt)}</p>
+                          <div className="flex items-center">
+                            <Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <span>5.0</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop table layout */}
+            <div className="hidden sm:block overflow-x-auto rounded-md border border-gray-200">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b bg-gray-50 text-left">
-                    <th className="px-4 py-3 font-medium">Order</th>
-                    <th className="px-4 py-3 font-medium">Customer</th>
-                    <th className="px-4 py-3 font-medium">Address</th>
-                    <th className="px-4 py-3 font-medium">Amount</th>
-                    <th className="px-4 py-3 font-medium">Delivery Fee</th>
-                    <th className="px-4 py-3 font-medium">Completed</th>
-                    <th className="px-4 py-3 font-medium">Rating</th>
+                    <th className="px-4 py-3 font-medium text-sm">Order</th>
+                    <th className="px-4 py-3 font-medium text-sm">Customer</th>
+                    <th className="px-4 py-3 font-medium text-sm">Address</th>
+                    <th className="px-4 py-3 font-medium text-sm">Amount</th>
+                    <th className="px-4 py-3 font-medium text-sm">Delivery Fee</th>
+                    <th className="px-4 py-3 font-medium text-sm">Completed</th>
+                    <th className="px-4 py-3 font-medium text-sm">Rating</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {deliveryHistory.map((delivery) => (
-                    <tr key={delivery.id} className="border-b">
-                      <td className="px-4 py-3">{delivery.orderId}</td>
-                      <td className="px-4 py-3">{delivery.customer}</td>
-                      <td className="px-4 py-3">{delivery.address}</td>
-                      <td className="px-4 py-3">${delivery.amount}</td>
-                      <td className="px-4 py-3 font-medium text-green-600">${delivery.deliveryFee}</td>
-                      <td className="px-4 py-3">{delivery.completedAt}</td>
-                      <td className="px-4 py-3">
+                  {orderHistory.map((history) => (
+                    <tr key={history.orderId} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">
+                        <div>
+                          <p className="font-medium">{history.orderId}</p>
+                          <Badge
+                            variant="outline"
+                            className="bg-green-100 text-green-800 border-green-300 text-xs mt-1"
+                          >
+                            delivered
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {`${history.userId.firstName} ${history.userId.lastName}`}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="max-w-[200px] truncate" title={history.deliveryAddress}>
+                          {history.deliveryAddress}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        ₦{history.totalAmount}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-green-600 text-sm">
+                        ₦500
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {formatDate(history.updatedAt)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
                         <div className="flex items-center">
                           <Star className="mr-1 h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          {delivery.rating}
+                          5.0
                         </div>
                       </td>
                     </tr>
@@ -281,15 +685,39 @@ export default function RiderDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {orderHistory.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <Package className="mx-auto h-12 w-12 mb-4 text-gray-300" />
+                <p>No delivered orders yet</p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>
 
+      <OrderDetailsModal
+        isOpen={isOrderDetailsModalOpen}
+        onClose={() => {
+          setIsOrderDetailsModalOpen(false);
+          setSelectedOrder(null);
+        }}
+        order={selectedOrder}
+        onUpdateStatus={() => {}}
+      />
+
+      <VerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onVerify={verifyDelivery}
+        orderId={selectedOrderId}
+      />
+
       <footer className="border-t border-gray-200 py-6">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
+        <div className="container mx-auto px-4 text-center text-xs sm:text-sm text-gray-600">
           &copy; {new Date().getFullYear()} Estate Run. All rights reserved.
         </div>
       </footer>
     </div>
-  )
+  );
 }

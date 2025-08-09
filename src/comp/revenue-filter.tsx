@@ -18,7 +18,6 @@ export function RevenueFilter({ supermarketId }: RevenueFilterProps) {
     try {
       const stats = await getVendorDashboard(supermarketId, range)
       setRevenue(stats.Revenue)
-      console.log("Dashboard stats:", stats)
     } catch (error) {
       console.error("Error fetching vendor dashboard stats:", error)
     }

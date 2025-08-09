@@ -10,9 +10,21 @@ const getSupermarket = async () => {
   }
 };
 
-const updateStatus = async (id: string | undefined, status: string) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const updateSupermarket = async (id: string, data: any) => {
+  try{
+    const response = await axios.put(`${API_ENDPOINTS.SUPERMARKET}/${id}`, data)
+    return response.data;
+
+  }catch (error) {
+    console.error('Error updating supermarket', error)
+  }
+}
+
+
+const updateStatus = async (id: string , payload: {isOpen: boolean}) => {
   try {
-    const response = await axios.put(`${API_ENDPOINTS.SUPERMARKET}/${id}`, { status });
+    const response = await axios.put(`${API_ENDPOINTS.SUPERMARKET}/${id}`, payload);
     return response.data;
   } catch (error) {
     console.error('Error updating supermarket status', error);
@@ -20,4 +32,4 @@ const updateStatus = async (id: string | undefined, status: string) => {
 };
 
 
-export { getSupermarket, updateStatus }
+export { getSupermarket, updateStatus, updateSupermarket }

@@ -79,18 +79,13 @@ const signupUser = async (
   }
 };
 
-const logoutUser = async () => {
+ const logoutUser = async (userId: string) => {
   try {
-    const response = await axios.post(API_ENDPOINTS.LOGOUT);
-    if (response.data && response.status === 200) {
-      localStorage.removeItem("userId");
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      return { success: true, message: "Logout successful" };
-    }
-  } catch (err) {
-    console.error("Logout failed", err);
-    return { success: false, message: "Logout failed" };
+    const response = await axios.post(API_ENDPOINTS.LOGOUT, { userId });
+    return response.data;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    throw error?.response?.data?.message || 'Logout failed';
   }
 };
 
