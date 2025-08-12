@@ -120,18 +120,7 @@ interface UserOrder {
       // setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
 
-    return () => {
-      socket.off('riderAcceptNotification');
-    };
-  }, []);
-  
-
-    useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    socket.on('orderStatusUpdate', (data: any) => {
+        socket.on('orderStatusUpdate', (data: any) => {
       console.log('data', data)
       const orderStatus = data.orders.status
       let message = ''
@@ -149,11 +138,13 @@ interface UserOrder {
       // setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
 
+
     return () => {
-      socket.off('orderStatusUpdate');
+      socket.off('riderAcceptNotification');
+      socket.off('orderStatusUpdate')
     };
   }, []);
-
+  
 
     const logout = async () => {
     const userId = localStorage.getItem('userId');

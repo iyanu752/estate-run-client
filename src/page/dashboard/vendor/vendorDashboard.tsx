@@ -174,10 +174,25 @@ useEffect(() => {
       setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
 
+       socket.on('orderStatusUpdate', (data: any) => {
+      console.log('data', data)
+      const orderStatus = data.orders.status
+      let message = ''
+        if (orderStatus === 'out-for-delivery'){
+        message = 'Rider has picked up order, Out for delivery'
+      }else if (orderStatus === 'delivered') {
+        message = 'Order delivered, Your goods have been delivered'
+      }
+      toast.success(`${message}`);
+      getVendorOrder()
+    });
+
     return () => {
       socket.off('orderPlaced');
+      socket.off('orderStatusUpdate')
     };
   }, []);
+
 
   const getVendorOrder = async () => {
     try {
@@ -208,34 +223,6 @@ useEffect(() => {
   }, [vendorId, isLoading]);
 
 
-   useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    socket.on('orderStatusUpdate', (data: any) => {
-      console.log('data', data)
-      const orderStatus = data.orders.status
-      let message = ''
-      // if(orderStatus === 'pending') {
-      //   message = 'Your order has been updated to pending'
-      // }else if (orderStatus === 'packed'){
-      //   message = 'Your order has been packed'
-      // }else 
-        if (orderStatus === 'out-for-delivery'){
-        message = 'Rider has picked up order, Out for delivery'
-      }else if (orderStatus === 'delivered') {
-        message = 'Order delivered, Your goods have been delivered'
-      }
-      toast.success(`${message}`);
-      getVendorOrder()
-      // setOrders((previousOrders) => [ data.product, ...previousOrders])
-    });
-
-    return () => {
-      socket.off('orderStatusUpdate');
-    };
-  }, []);
 
 
 
