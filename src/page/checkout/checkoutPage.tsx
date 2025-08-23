@@ -65,8 +65,8 @@ export default function CheckoutPage() {
   });
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [ispacked, setIspacked] = useState(false);
-   
-  const [, setSupermarket] = useState<Supermarket[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [supermarket, setSupermarket] = useState<Supermarket[]>([]);
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
