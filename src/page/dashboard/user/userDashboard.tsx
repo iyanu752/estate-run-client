@@ -50,6 +50,7 @@ export default function UserDashboard() {
   const supermarketCloseTime = supermarket[0]?.closeTime || "9:00 PM";
   const supermarketDescription = supermarket[0]?.description || "";
   const supermarketId = supermarket[0]?._id;
+   const supermarketImage = supermarket[0]?.image;
     const [orders, setOrders] = useState<UserOrder[]>([]);
 // const filteredSupermarkets = supermarket.filter((market) =>
 //   market.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -308,7 +309,7 @@ interface UserOrder {
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
                   <img
-                    // src={market.image || "/placeholder.svg"}
+                    src={supermarketImage || "/placeholder.svg"}
                     alt={supermarketName}
                     className="mb-3 h-[100px] w-full rounded-md object-cover"
                   />

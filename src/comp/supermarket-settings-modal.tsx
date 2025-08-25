@@ -3,10 +3,11 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Settings, Upload, Clock, Building, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { uploadImage } from "@/service/uploadService"
 import {
   Dialog,
   DialogContent,
@@ -173,6 +174,9 @@ export function SupermarketSettingsModal({
     autoSchedule: settings.autoSchedule || defaultAutoSchedule,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<
     "general" | "schedule" | "advanced"
   >("general");
@@ -269,11 +273,59 @@ export function SupermarketSettingsModal({
     }));
   };
 
-  const handleImageUpload = () => {
-    console.log("Image upload would happen here");
-    // In a real implementation, you'd handle file upload here
-    const newImageUrl = "/placeholder.svg?height=200&width=200&text=New+Image";
-    handleInputChange("image", newImageUrl);
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      
+      // Validate file type
+      if (!selectedFile.type.startsWith('image/')) {
+        toast.error("Please select a valid image file");
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      
+      setFile(selectedFile);
+    }
+  };
+
+    const handleSelectImage = () => {
+    fileInputRef.current?.click();
+  };
+
+
+  const handleImageUpload = async () => {
+    if (!file) {
+      toast.warning("Please select an image first");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await uploadImage(file);
+      
+      // Update form data with the uploaded image URL
+      setFormData(prev => ({ ...prev, image: result.secure_url }));
+      
+      // Clear the file state since upload is complete
+      setFile(null);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -409,14 +461,41 @@ export function SupermarketSettingsModal({
                         </AvatarFallback>
                       </Avatar>
                       <div className="space-y-2">
+                        {/* Hidden file input */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={handleImageUpload}
+                          onClick={handleSelectImage}
+                          disabled={isUploading}
                         >
                           <Upload className="mr-2 h-4 w-4" />
-                          Upload New Image
+                          Select Image
                         </Button>
+                        
+                        {file && (
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={handleImageUpload}
+                              disabled={isUploading}
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {isUploading ? "Uploading..." : "Upload Selected Image"}
+                            </Button>
+                            <span className="text-xs text-gray-600">{file.name}</span>
+                          </div>
+                        )}
+                        
                         <p className="text-xs text-gray-500">
                           Recommended: Square image, at least 200x200px
                         </p>

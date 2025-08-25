@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { createProduct, updateProduct } from "@/service/productService"
 import { toast } from "sonner"
+import { uploadImage } from "@/service/uploadService"
 
 interface Item {
   id?: string
@@ -91,6 +92,8 @@ export function AddEditItemModal({ isOpen, onClose, onSave, item, mode, ownerId 
     isAvailable: true
   })
   const [isLoading, setIsLoading] = useState(false)
+    const [file, setFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     if (item && mode === "edit") {
@@ -108,6 +111,24 @@ export function AddEditItemModal({ isOpen, onClose, onSave, item, mode, ownerId 
       })
     }
   }, [item, mode, isOpen])
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0]
+      
+      if (!selectedFile.type.startsWith('image/')) {
+        toast.error("Please select a valid image file")
+        return
+      }
+
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB")
+        return
+      }
+      
+      setFile(selectedFile)
+    }
+  }
 
   const handleInputChange = (field: keyof Item, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -160,9 +181,25 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 
 
-  const handleImageUpload = () => {
-    // In a real app, this would handle file upload
-    alert("Image upload functionality would be implemented here")
+  const handleImageUpload = async () => {
+    if (!file) {
+      toast.warning("Please select an image first")
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const result = await uploadImage(file)
+      setFormData(prev => ({ ...prev, image: result.secure_url }))
+      setFile(null)
+      
+      toast.success("Image uploaded successfully!")
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast.error("Failed to upload image. Please try again.")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   return (
@@ -186,7 +223,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="h-20 w-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
                 {formData.image ? (
                   <img
-                    src={formData.image || "/placeholder.svg"}
+                    src={formData.image}
                     alt="Product"
                     className="h-full w-full object-cover rounded-lg"
                   />
@@ -194,12 +231,29 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <Upload className="h-8 w-8 text-gray-400" />
                 )}
               </div>
-              <div className="flex-1">
-                <Button type="button" variant="outline" onClick={handleImageUpload}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Image
-                </Button>
-                <p className="text-xs text-gray-500 mt-1">JPG, PNG up to 5MB</p>
+              <div className="flex-1 space-y-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {file && (
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleImageUpload}
+                      disabled={isUploading}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {isUploading ? "Uploading..." : "Upload Selected Image"}
+                    </Button>
+                    <span className="text-xs text-gray-600">{file.name}</span>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">JPG, PNG up to 5MB</p>
               </div>
             </div>
           </div>

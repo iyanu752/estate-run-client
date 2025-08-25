@@ -13,6 +13,7 @@ PROFILE: `${BASE_URL}/profile`,
 USERS: `${BASE_URL}/users`,
 CART: `${BASE_URL}/cart`,
 ORDER: `${BASE_URL}/orders`,
+UPLOAD: `${BASE_URL}/upload`,
 
 
 }
