@@ -66,12 +66,11 @@ interface Supermarket {
   holidayMode?: boolean;
   isOpen?: boolean
 }
-   
   // const { id } = useParams<{ id: string }>()
   const [searchQuery, setSearchQuery] = useState("")
   const [product, setProduct] = useState<Product[]>([])
   const [supermarket, setSupermarket] = useState<Supermarket>({});
-   
+
   const [, setCart] = useState<Array<{ id: string; quantity: number }>>
   ([])
   const [cartItems, setCartItems] = useState<CartItem[]>([])
@@ -113,8 +112,6 @@ const categoryCounts = useMemo(() => {
   const fetchCartData = async (userId: string) => {
     try {
       const response = await fetchCart(userId);
-
-       
      const transformedItems = response.items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   .filter((item: any) => item.productId) // <-- skip null productId

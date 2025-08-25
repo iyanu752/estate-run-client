@@ -141,6 +141,7 @@ export default function VendorDashboard() {
   const supermarketDescription = supermarket?.description || "";
   const supermarketId = supermarket?._id;
   const vendorId = supermarket?.ownerId || "";
+  const supermarketImage = supermarket?.image || "/placeholder.svg"
   const [isOpen, setIsOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
@@ -644,7 +645,7 @@ useEffect(() => {
             </CardHeader>
             <CardContent className="p-4 pt-2">
               <img
-                src="/placeholder.svg"
+                src={supermarketImage || "/placeholder.svg"}
                 alt={supermarketName}
                 className="mb-3 h-[120px] sm:h-[150px] w-full rounded-md object-cover"
               />
