@@ -66,13 +66,12 @@ interface Supermarket {
   holidayMode?: boolean;
   isOpen?: boolean
 }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // const { id } = useParams<{ id: string }>()
   const [searchQuery, setSearchQuery] = useState("")
   const [product, setProduct] = useState<Product[]>([])
   const [supermarket, setSupermarket] = useState<Supermarket>({});
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [cart, setCart] = useState<Array<{ id: string; quantity: number }>>
+
+  const [, setCart] = useState<Array<{ id: string; quantity: number }>>
   ([])
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const cartLength = cartItems.length
@@ -113,8 +112,6 @@ const categoryCounts = useMemo(() => {
   const fetchCartData = async (userId: string) => {
     try {
       const response = await fetchCart(userId);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
      const transformedItems = response.items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   .filter((item: any) => item.productId) // <-- skip null productId
