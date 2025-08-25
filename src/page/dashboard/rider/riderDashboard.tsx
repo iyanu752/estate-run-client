@@ -187,29 +187,14 @@ export default function RiderDashboard() {
         toast.success(`New Order ${orderid} Placed!`);
         setOrders((previousOrders) => [ data.product, ...previousOrders])
       });
-  
-      return () => {
-        socket.off('orderPlaced');
-      };
-    }, []);
 
 
-    useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    socket.on('orderStatusUpdate', (data: any) => {
+      socket.on('orderStatusUpdate', (data: any) => {
       console.log('data', data)
       const orderStatus = data.orders.status
       let message = ''
-      // if(orderStatus === 'pending') {
-      //   message = 'Your order has been updated to pending'
-      // }else
          if (orderStatus === 'packed'){
         message = `Order ${data.orders.orderId} has been packed, proceed to pickup`
-      // }else if (orderStatus === 'out-for-delivery'){
-      //   message = ''
       }else if (orderStatus === 'delivered') {
         message = 'Order delivered, Good Job'
       }
@@ -217,11 +202,13 @@ export default function RiderDashboard() {
       getOrders()
       // setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
+  
+      return () => {
+        socket.off('orderPlaced');
+        socket.off('orderStatusUpdate')
+      };
+    }, []);
 
-    return () => {
-      socket.off('orderStatusUpdate');
-    };
-  }, []);
 
 
 
