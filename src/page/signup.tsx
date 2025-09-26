@@ -399,10 +399,14 @@ export default function Signup() {
                     <Truck className="h-4 w-4" />
                     <span className="hidden sm:inline">Rider</span>
                   </TabsTrigger>
-                  <TabsTrigger value="admin" className="flex items-center gap-2">
+                  <TabsTrigger value="ops" className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    <span className="hidden sm:inline">Ops</span>
+                  </TabsTrigger>
+                  {/* <TabsTrigger value="admin" className="flex items-center gap-2">
                     <Building className="h-4 w-4" />
                     <span className="hidden sm:inline">Admin</span>
-                  </TabsTrigger>
+                  </TabsTrigger> */}
                 </TabsList>
 
                 <form onSubmit={handleSubmit} className="mt-6">
@@ -543,7 +547,42 @@ export default function Signup() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="admin" className="space-y-4">
+                    <TabsContent value="ops" className="space-y-4">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold">Ops Registration</h3>
+                      <p className="text-sm text-gray-600">Create an ops account</p>
+                    </div>
+
+                    {renderCommonFields()}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Address *</Label>
+                      <Input
+                        id="address"
+                        placeholder="Your address"
+                        value={formData.address || ""}
+                        onChange={(e) => handleInputChange("address", e.target.value)}
+                        onBlur={() => handleBlur("address")}
+                        className={getFieldError("address") ? "border-red-500 focus:border-red-500" : ""}
+                        required
+                      />
+                      {getFieldError("address") && (
+                        <p className="text-sm text-red-600">{getFieldError("address")}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="estate">Estate</Label>
+                      <Input
+                        id="estate"
+                        placeholder="Your estate"
+                        value={formData.estate || ""}
+                        onChange={(e) => handleInputChange("estate", e.target.value)}
+                      />
+                    </div>
+                  </TabsContent>
+
+                  {/* <TabsContent value="admin" className="space-y-4">
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold">Admin Registration</h3>
                       <p className="text-sm text-gray-600">Create an admin account</p>
@@ -576,7 +615,7 @@ export default function Signup() {
                         onChange={(e) => handleInputChange("estate", e.target.value)}
                       />
                     </div>
-                  </TabsContent>
+                  </TabsContent> */}
 
                   {/* Terms and Conditions */}
                   <div className="mt-6 space-y-4">
@@ -617,7 +656,7 @@ export default function Signup() {
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading
                         ? "Creating Account..."
-                        : `Create ${activeTab === "user" ? "Resident" : activeTab === "vendor" ? "Vendor" : activeTab === "rider" ? "Rider" : "Admin"} Account`}
+                        : `Create ${activeTab === "user" ? "Resident" : activeTab === "vendor" ? "Vendor" : activeTab === "rider" ? "Rider" :  activeTab === "ops" ? "Ops" : "Admin" } Account`}
                     </Button>
                   </div>
                 </form>

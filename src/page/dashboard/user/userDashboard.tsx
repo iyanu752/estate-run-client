@@ -1,18 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Clock, LogOut, Search, ShoppingCart, User, Package } from "lucide-react"
+import { useEffect, useState } from "react";
+import {
+  Clock,
+  LogOut,
+  Search,
+  ShoppingCart,
+  User,
+  Package,
+  QrCode,
+  Phone,
+  Newspaper,
+  Plus,
+} from "lucide-react";
 import { socket } from "@/utils/socket";
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { getSupermarket } from "@/service/supermarketService"
-import { getOrderByUserId  } from "@/service/orderService"
-import { toast } from "sonner"
-import { logoutUser } from "@/service/authService"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { getSupermarket } from "@/service/supermarketService";
+import { getOrderByUserId } from "@/service/orderService";
+import { toast } from "sonner";
+import { logoutUser } from "@/service/authService";
 import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import VisitorCodeGenerator from "@/comp/visitor-code-generator";
+import { getVerifyCodeByUserId } from "@/service/codesService";
 interface Supermarket {
   _id?: string;
   name?: string;
@@ -24,59 +44,84 @@ interface Supermarket {
   ownerId?: string;
   image?: string;
   autoSchedule?: {
-  enabled: boolean;
-  monday: { open: string; close: string; closed: boolean };
-  tuesday: { open: string; close: string; closed: boolean };
-  wednesday: { open: string; close: string; closed: boolean };
-  thursday: { open: string; close: string; closed: boolean };
-  friday: { open: string; close: string; closed: boolean };
-  saturday: { open: string; close: string; closed: boolean };
-  sunday: { open: string; close: string; closed: boolean };
+    enabled: boolean;
+    monday: { open: string; close: string; closed: boolean };
+    tuesday: { open: string; close: string; closed: boolean };
+    wednesday: { open: string; close: string; closed: boolean };
+    thursday: { open: string; close: string; closed: boolean };
+    friday: { open: string; close: string; closed: boolean };
+    saturday: { open: string; close: string; closed: boolean };
+    sunday: { open: string; close: string; closed: boolean };
   };
   timezone?: string;
   holidayMode?: boolean;
-  isOpen?: boolean
+  isOpen?: boolean;
 }
 
-
-
 export default function UserDashboard() {
-  const [searchQuery, setSearchQuery] = useState("")
+
+    interface UserOrder {
+    _id: string;
+    userId: {
+      email: string;
+      firstName: string;
+      supermarket: string;
+    };
+    items: {
+      product: any;
+      quantity: number;
+    }[];
+    totalAmount: number;
+    deliveryAddress: string;
+    deliveryInstructions: string;
+    status: string;
+    orderId: string;
+    assignedRider: string;
+    createdAt: string;
+    verificationCode: string;
+  }
+
+interface VisitorFormData {
+  visitorName: string;
+  visitorPhone: number;
+  purposeOfVisit: string;
+  date: string;   
+  from: string;    
+  to: string;
+  specialInstructions: string;
+}
+
+interface VisitorCode extends VisitorFormData {
+  id: string;
+  verificationCode: number;
+  status: string;
+  createdAt: string;
+}
+
+// interface VisitorCodeGeneratorProps {
+//   isOpen: boolean;
+//   onClose: () => void;
+//   onGenerate: (code: VerifyCode) => void; 
+// }
+
+
+  const [searchQuery, setSearchQuery] = useState("");
   const [supermarket, setSupermarket] = useState<Supermarket[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("overview");
   const supermarketName = supermarket[0]?.name || "";
   const supermarketStatus = supermarket[0]?.isOpen;
-   const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [visitorCodes, setVisitorCodes] = useState<VisitorCode[]>([]);
+  const [isVisitorCodeModalOpen, setIsVisitorCodeModalOpen] = useState(false);
   const supermarketOpenTime = supermarket[0]?.openTime || "9:00 AM";
   const supermarketCloseTime = supermarket[0]?.closeTime || "9:00 PM";
   const supermarketDescription = supermarket[0]?.description || "";
   const supermarketId = supermarket[0]?._id;
-   const supermarketImage = supermarket[0]?.image;
-    const [orders, setOrders] = useState<UserOrder[]>([]);
-// const filteredSupermarkets = supermarket.filter((market) =>
-//   market.name.toLowerCase().includes(searchQuery.toLowerCase())
-// );
-
-interface UserOrder {
-  _id: string;
-  userId: {
-    email: string;
-    firstName: string;
-    supermarket: string;
-  };
-  items: {
-    product: any;
-    quantity: number;
-  }[];
-  totalAmount: number;
-  deliveryAddress: string;
-  deliveryInstructions: string;
-  status: string;
-  orderId: string;
-  assignedRider: string;
-  createdAt: string;
-  verificationCode: string;
-}
-
+  const supermarketImage = supermarket[0]?.image;
+  const [orders, setOrders] = useState<UserOrder[]>([]);
+  // const filteredSupermarkets = supermarket.filter((market) =>
+  //   market.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // );
 
 
   const statusColors: Record<string, string> = {
@@ -89,15 +134,25 @@ interface UserOrder {
     "payment-failed": "bg-red-50 text-red-700 border-red-200",
   };
 
+  // const codeStatusColors: Record<string, string> ={
+  //    Active: "bg-green-100 text-green-800 border-green-300",
+  //    Used:"bg-gray-100 text-gray-800 border-gray-300"
+  // }
+
+  const handleGenerateVisitorCode = (code: VisitorCode) => {
+  setVisitorCodes((prev) => [code, ...prev]); 
+  setIsVisitorCodeModalOpen(false); 
+  toast.success("Visitor code generated successfully!");
+};
 
 
   const getUserOrder = async () => {
     try {
-      const userId = localStorage.getItem("userId")
-      console.log('userId', userId)
-      if (!userId){
-         return;
-        }
+      const userId = localStorage.getItem("userId");
+      console.log("userId", userId);
+      if (!userId) {
+        return;
+      }
       const response = await getOrderByUserId(userId);
       console.log("new orders", response);
       setOrders(response);
@@ -106,52 +161,68 @@ interface UserOrder {
     }
   };
 
+  const getCodesByUserId = async() => {
+    try{
+    const userId = localStorage.getItem("userId")
+    if (!userId) {
+        return;
+    }
+    const response = await getVerifyCodeByUserId(userId)
+    setVisitorCodes(response.data)
+    }catch(error){
+    console.error('error in getting user verification codes', error)
+    }
+  }
+
+  // const handleGenerateVisitorCode = (code: VisitorCode) => {
+  //   getVi
+  // }
+
   useEffect(() => {
     getUserOrder();
+    getCodesByUserId()
   }, []);
 
   useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
+    socket.on("connect", () => {
+      console.log("Connected to WebSocket");
     });
 
-    socket.on('riderAcceptNotification', (data: any) => {
-      const orderid = data.product.orderId
+    socket.on("riderAcceptNotification", (data: any) => {
+      const orderid = data.product.orderId;
       toast.success(`${orderid} has been assigned to a rider`);
       // setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
 
-        socket.on('orderStatusUpdate', (data: any) => {
-      console.log('data', data)
-      const orderStatus = data.orders.status
-      let message = ''
-      if(orderStatus === 'pending') {
-        message = 'Your order has been updated to pending'
-      }else if (orderStatus === 'packed'){
-        message = 'Your order has been packed'
-      }else if (orderStatus === 'out-for-delivery'){
-        message = 'Rider has picked up your order, Out for delivery'
-      }else if (orderStatus === 'delivered') {
-        message = 'Order delivered, Please rate the dispatch service'
+    socket.on("orderStatusUpdate", (data: any) => {
+      console.log("data", data);
+      const orderStatus = data.orders.status;
+      let message = "";
+      if (orderStatus === "pending") {
+        message = "Your order has been updated to pending";
+      } else if (orderStatus === "packed") {
+        message = "Your order has been packed";
+      } else if (orderStatus === "out-for-delivery") {
+        message = "Rider has picked up your order, Out for delivery";
+      } else if (orderStatus === "delivered") {
+        message = "Order delivered, Please rate the dispatch service";
       }
       toast.success(`${message}`);
-      getUserOrder()
+      getUserOrder();
       // setOrders((previousOrders) => [ data.product, ...previousOrders])
     });
 
-
     return () => {
-      socket.off('riderAcceptNotification');
-      socket.off('orderStatusUpdate')
+      socket.off("riderAcceptNotification");
+      socket.off("orderStatusUpdate");
     };
   }, []);
-  
 
-    const logout = async () => {
-    const userId = localStorage.getItem('userId');
+  const logout = async () => {
+    const userId = localStorage.getItem("userId");
 
     if (!userId) {
-      toast.error('No user found to log out.');
+      toast.error("No user found to log out.");
       return;
     }
 
@@ -159,66 +230,74 @@ interface UserOrder {
       await logoutUser(userId);
 
       // Clean up localStorage or cookies
-      localStorage.removeItem('userId');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem("userId");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
 
-      toast.success('You have been logged out');
-      navigate('/');
+      toast.success("You have been logged out");
+      navigate("/");
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error(typeof error === 'string' ? error : 'Logout failed');
+      console.error("Logout error:", error);
+      toast.error(typeof error === "string" ? error : "Logout failed");
     }
   };
 
-
-  const getSupermarkets = async() => {
-  try{
-  const supermarkets = await getSupermarket()
-   setSupermarket(supermarkets)
-  }catch(error){
-    console.error("Error fetching supermarkets: ", error)
-  }
-}
+  const getSupermarkets = async () => {
+    try {
+      const supermarkets = await getSupermarket();
+      setSupermarket(supermarkets);
+    } catch (error) {
+      console.error("Error fetching supermarkets: ", error);
+    }
+  };
   useEffect(() => {
- getSupermarkets()
-}, [])
+    getSupermarkets();
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
-     <header className="border-b border-gray-200">
-  <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between px-4 py-4 gap-4 sm:gap-0">
-    <h1 className="text-xl font-bold tracking-tight">Estate Run</h1>
+      <header className="border-b border-gray-200">
+        <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between px-4 py-4 gap-4 sm:gap-0">
+          <h1 className="text-xl font-bold tracking-tight">Estate Run</h1>
 
-    <div className="flex items-center gap-4">
-      <span className="text-sm font-medium hidden sm:inline">Welcome, Resident</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium hidden sm:inline">
+              Welcome, Resident
+            </span>
 
-      <a href="/dashboard/user/orders/:id">
-        <Button variant="ghost" size="icon">
-          <Package className="h-5 w-5" />
-          <span className="sr-only">My Orders</span>
-        </Button>
-      </a>
+            <a href="/dashboard/user/orders/:id">
+              <Button variant="ghost" size="icon">
+                <Package className="h-5 w-5" />
+                <span className="sr-only">My Orders</span>
+              </Button>
+            </a>
 
-      <a href="/profile/user">
-        <Button variant="ghost" size="icon">
-          <User className="h-5 w-5" />
-          <span className="sr-only">Profile</span>
-        </Button>
-      </a>
+            <a href="/profile/user">
+              <Button variant="ghost" size="icon">
+                <User className="h-5 w-5" />
+                <span className="sr-only">Profile</span>
+              </Button>
+            </a>
 
-      
-        <Button variant="ghost" size="icon" onClick={logout}>
-          <LogOut className="h-5 w-5" />
-          <span className="sr-only">Logout</span>
-        </Button>
-    </div>
-  </div>
-</header>
-
+            <Button variant="ghost" size="icon" onClick={logout}>
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Logout</span>
+            </Button>
+          </div>
+        </div>
+      </header>
 
       <main className="container mx-auto px-4 py-8">
-        {orders.length > 0 && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="shopping">Shopping</TabsTrigger>
+            <TabsTrigger value="visitors">Visitor Codes</TabsTrigger>
+            <TabsTrigger value="news">Estate News</TabsTrigger>
+            <TabsTrigger value="emergency">Emergency</TabsTrigger>
+          </TabsList>
+                  <TabsContent value="overview" className="space-y-8">
+                 {orders.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Recent Orders</h2>
@@ -237,36 +316,49 @@ interface UserOrder {
                         <h3 className="font-medium">#{order.orderId}</h3>
                         <p className="text-sm text-gray-600">
                           {order.userId.supermarket} •{" "}
-                          {new Date(order.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })},{" "}
-                          {new Date(order.createdAt).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-800"> Verification code • <span className="font-bold">{order.verificationCode}</span></p>
-                      </div>
-                          <Badge
-                            variant={
-                              order.status === "pending" ? "outline" : "default"
+                          {new Date(order.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
                             }
-                            className={`text-xs ${
-                              statusColors[order.status] ??
-                              "bg-gray-100 text-gray-800 border-gray-300"
-                            }`}
-                          >
-                            {order.status.charAt(0).toUpperCase() +
-                              order.status.slice(1).replace(/-/g, " ")}
-                          </Badge>{" "}
-                        
+                          )}
+                          ,{" "}
+                          {new Date(order.createdAt).toLocaleTimeString(
+                            "en-US",
+                            {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            }
+                          )}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-800">
+                          {" "}
+                          Verification code •{" "}
+                          <span className="font-bold">
+                            {order.verificationCode}
+                          </span>
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          order.status === "pending" ? "outline" : "default"
+                        }
+                        className={`text-xs ${
+                          statusColors[order.status] ??
+                          "bg-gray-100 text-gray-800 border-gray-300"
+                        }`}
+                      >
+                        {order.status.charAt(0).toUpperCase() +
+                          order.status.slice(1).replace(/-/g, " ")}
+                      </Badge>{" "}
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-600">
-                        {order.items.length} items • ₦{order.totalAmount.toFixed(2)}
+                        {order.items.length} items • ₦
+                        {order.totalAmount.toFixed(2)}
                       </div>
                       <a href={`/orders/${order._id}`}>
                         <Button variant="outline" size="sm">
@@ -280,8 +372,94 @@ interface UserOrder {
             </div>
           </div>
         )}
+                  {/* Quick Actions */}
+            <div>
+              <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card
+                  className="border-black/10 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setActiveTab("shopping")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                    <h3 className="font-medium">Shop Now</h3>
+                    <p className="text-sm text-gray-600">Browse supermarkets</p>
+                  </CardContent>
+                </Card>
 
-        <div className="mb-8">
+                <Card
+                  className="border-black/10 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setIsVisitorCodeModalOpen(true)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <QrCode className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                    <h3 className="font-medium">Generate Code</h3>
+                    <p className="text-sm text-gray-600">Visitor access code</p>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-black/10 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setActiveTab("news")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Newspaper className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                    <h3 className="font-medium">Estate News</h3>
+                    <p className="text-sm text-gray-600">Latest updates</p>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-black/10 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setActiveTab("emergency")}
+                >
+                  <CardContent className="p-4 text-center">
+                    <Phone className="h-8 w-8 mx-auto mb-2 text-red-600" />
+                    <h3 className="font-medium">Emergency</h3>
+                    <p className="text-sm text-gray-600">Quick dial services</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+             {/* Recent Visitor Codes */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Recent Visitor Codes</h2>
+                <Button size="sm" onClick={() => setIsVisitorCodeModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Generate Code
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {visitorCodes.slice(0, 4).map((code) => (
+                  <Card key={code.id} className="border-black/10">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-sm font-medium">dummy data
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            code.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                          }
+                        >
+                          {code.status === "active" ? "Active" : "Used"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600">{code.visitorName}</p>
+                      <p className="text-xs text-gray-500">
+                        {code.purposeOfVisit} • Valid until {code.to}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="shopping" className="space-y-6">
+                  <div className="mb-8">
           <h2 className="mb-4 text-2xl font-bold">Available Supermarkets</h2>
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
@@ -294,44 +472,68 @@ interface UserOrder {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* {filteredSupermarkets.map((market) => ( */}
-              <Card key={supermarketId} className="border-black/10 transition-all hover:shadow-md">
-                <CardHeader className="p-4 pb-2">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{supermarketName}</CardTitle>
-                    <Badge
-                      variant={supermarketStatus ? "default" : "outline"}
-                      className={supermarketStatus ? "bg-green-600" : "text-gray-500"}
-                    >
-                      {supermarketStatus ? "Open" : "Closed"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-2">
-                  <img
-                    src={supermarketImage || "/placeholder.svg"}
-                    alt={supermarketName}
-                    className="mb-3 h-[100px] w-full rounded-md object-cover"
-                  />
-                  <p className="mb-2 text-sm text-gray-600">{supermarketDescription}</p>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Clock className="mr-1 h-3 w-3" />
-                    {supermarketOpenTime} - {supermarketCloseTime}
-                  </div>
-                </CardContent>
-                <CardFooter className="p-4 pt-0">
-                  <a href={`/dashboard/user/supermarket/${supermarketId}`} className="w-full">
-                    <Button variant="outline" className="w-full" disabled={!supermarketId}>
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      {supermarketStatus ? "Shop Now" : "Currently Closed"}
-                    </Button>
-                  </a>
-                </CardFooter>
-              </Card>
-            {/* ))} */}
+            <Card
+              key={supermarketId}
+              className="border-black/10 transition-all hover:shadow-md"
+            >
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg">{supermarketName}</CardTitle>
+                  <Badge
+                    variant={supermarketStatus ? "default" : "outline"}
+                    className={
+                      supermarketStatus ? "bg-green-600" : "text-gray-500"
+                    }
+                  >
+                    {supermarketStatus ? "Open" : "Closed"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-2">
+                <img
+                  src={supermarketImage || "/placeholder.svg"}
+                  alt={supermarketName}
+                  className="mb-3 h-[100px] w-full rounded-md object-cover"
+                />
+                <p className="mb-2 text-sm text-gray-600">
+                  {supermarketDescription}
+                </p>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Clock className="mr-1 h-3 w-3" />
+                  {supermarketOpenTime} - {supermarketCloseTime}
+                </div>
+              </CardContent>
+              <CardFooter className="p-4 pt-0">
+                <a
+                  href={`/dashboard/user/supermarket/${supermarketId}`}
+                  className="w-full"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    disabled={!supermarketId}
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    {supermarketStatus ? "Shop Now" : "Currently Closed"}
+                  </Button>
+                </a>
+              </CardFooter>
+            </Card>
           </div>
         </div>
+        </TabsContent>
+
+        <TabsContent value="visitors" className="space-y-6">no visitors yet</TabsContent>
+        <TabsContent value="news" className="space-y-6">no news yet</TabsContent>
+        <TabsContent value="emergency" className="space-y-6">no emergencies yet</TabsContent>
+        </Tabs>
       </main>
+
+      <VisitorCodeGenerator
+        isOpen={isVisitorCodeModalOpen}
+        onClose={() => setIsVisitorCodeModalOpen(false)}
+        onGenerate={handleGenerateVisitorCode}
+      />
 
       <footer className="border-t border-gray-200 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-gray-600">
@@ -339,5 +541,5 @@ interface UserOrder {
         </div>
       </footer>
     </div>
-  )
+  );
 }

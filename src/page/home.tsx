@@ -1,4 +1,6 @@
-import { Building, ShoppingCart, User, Truck } from "lucide-react"
+import { 
+  // Building,
+   ShoppingCart, User, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -94,7 +96,29 @@ export default function Home() {
             </CardFooter>
           </Card>
 
-          <Card className="border-black/10">
+                    <Card className="border-black/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                For Ops
+              </CardTitle>
+              <CardDescription>Manage your Estate  </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600">
+                Manage Residents, and ensure smooth operation of your Estate
+              </p>
+            </CardContent>
+            <CardFooter>
+              <a href="/login?type=ops" className="w-full">
+                <Button className="w-full" variant="outline">
+                  Login as Ops
+                </Button>
+              </a>
+            </CardFooter>
+          </Card>
+
+          {/* <Card className="border-black/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building className="h-5 w-5" />
@@ -114,7 +138,7 @@ export default function Home() {
                 </Button>
               </a>
             </CardFooter>
-          </Card>
+          </Card> */}
         </section>
       </main>
       {/* <Footer/> */}
