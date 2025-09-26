@@ -1,4 +1,4 @@
-const BASE_URL = "https://estate-run-1.onrender.com";
+const BASE_URL = "http://localhost:3000";
 
 const API_ENDPOINTS = {
 LOGIN: `${BASE_URL}/auth/login`,
@@ -14,6 +14,7 @@ USERS: `${BASE_URL}/users`,
 CART: `${BASE_URL}/cart`,
 ORDER: `${BASE_URL}/orders`,
 UPLOAD: `${BASE_URL}/upload`,
+CODE: `${BASE_URL}codes`
 
 
 }

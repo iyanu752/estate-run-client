@@ -172,10 +172,14 @@ export default function LoginPage() {
                 <Truck className="h-4 w-4" />
                 <span className="hidden sm:inline">Rider</span>
               </TabsTrigger>
-              <TabsTrigger value="admin" className="flex items-center gap-2">
+                <TabsTrigger value="ops" className="flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                <span className="hidden sm:inline">Ops</span>
+              </TabsTrigger>
+              {/* <TabsTrigger value="admin" className="flex items-center gap-2">
                 <Building className="h-4 w-4" />
                 <span className="hidden sm:inline">Admin</span>
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
 
             <TabsContent value="user">
@@ -187,9 +191,13 @@ export default function LoginPage() {
             <TabsContent value="rider">
               {renderLoginForm("rider", "Rider")}
             </TabsContent>
-            <TabsContent value="admin">
-              {renderLoginForm("admin", "Admin")}
+
+              <TabsContent value="ops">
+              {renderLoginForm("ops", "Ops")}
             </TabsContent>
+            {/* <TabsContent value="admin">
+              {renderLoginForm("admin", "Admin")}
+            </TabsContent> */}
           </Tabs>
         </CardContent>
 
