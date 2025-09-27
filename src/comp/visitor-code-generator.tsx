@@ -35,16 +35,17 @@ interface VisitorFormData {
   visitorName: string;
   visitorPhone: number;
   purposeOfVisit: string;
-  date: string;   
-  from: string;    
+  date: string;
+  from: string;
   to: string;
   specialInstructions: string;
 }
 
 interface VisitorCode extends VisitorFormData {
   id: string;
+  userId: string;
   verificationCode: number;
-  status: string;
+  codeStatus: string;
   createdAt: string;
 }
 
@@ -60,13 +61,13 @@ export default function VisitorCodeGenerator({
   onGenerate,
 }: VisitorCodeGeneratorProps) {
   const [formData, setFormData] = useState<VisitorFormData>({
-  visitorName: "",
-  visitorPhone: 0,
-  purposeOfVisit: "",
-  date: "",
-  from: "",
-  to: "",
-  specialInstructions: "",
+    visitorName: "",
+    visitorPhone: 0,
+    purposeOfVisit: "",
+    date: "",
+    from: "",
+    to: "",
+    specialInstructions: "",
   });
 
   const [generatedCode, setGeneratedCode] = useState<number | null>(null);
@@ -77,36 +78,45 @@ export default function VisitorCodeGenerator({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-const handleGenerateCode = async () => {
-  if (
-    !formData.visitorName.trim() ||
-    !formData.date ||
-    !formData.from ||
-    !formData.to ||
-    !formData.visitorPhone ||
-    !formData.purposeOfVisit
-  ) {
-    toast.error("Please fill all required fields");
-    return;
-  }
-
-  setIsLoading(true);
-  try {
-    const response = await createVerifyCode(formData);
-    if (response?.data) {
-      const generated: VisitorCode = response.data;
-      setGeneratedCode(generated.verificationCode);
-      onGenerate(generated);
-      toast.success("Verification code generated!");
+  const handleGenerateCode = async () => {
+    if (
+      !formData.visitorName.trim() ||
+      !formData.date ||
+      !formData.from ||
+      !formData.to ||
+      !formData.visitorPhone ||
+      !formData.purposeOfVisit
+    ) {
+      toast.error("Please fill all required fields");
+      return;
     }
-  } catch (error) {
+
+    setIsLoading(true);
+    try {
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+        toast.error("User is not logged in");
+        return;
+    }
+
+    const response = await createVerifyCode({ ...formData, userId });
+    if (response) {
+        const generated: VisitorCode = response;
+        setGeneratedCode(generated.verificationCode);
+        onGenerate(generated);
+        toast.success("Verification code generated!");
+    } else {
+        toast.error("No data returned from server");
+    }
+    } catch (error) {
     console.error("Error generating verification code", error);
     toast.error("Failed to generate code");
-  } finally {
+    } finally {
     setIsLoading(false);
-  }
-};
+    }
 
+
+  };
 
   const copyToClipboard = async () => {
     if (generatedCode) {
@@ -122,14 +132,14 @@ const handleGenerateCode = async () => {
   };
 
   const handleClose = () => {
-    setFormData({
-  visitorName: "",
-  visitorPhone: 0,
-  purposeOfVisit: "",
-  date: "",
-  from: "",
-  to: "",
-  specialInstructions: "",
+    setFormData({ 
+      visitorName: "",
+      visitorPhone: 0,
+      purposeOfVisit: "",
+      date: "",
+      from: "",
+      to: "",
+      specialInstructions: "",
     });
     setGeneratedCode(null);
     setCopied(false);
@@ -186,7 +196,9 @@ const handleGenerateCode = async () => {
                 <Label htmlFor="purpose">Purpose of Visit *</Label>
                 <Select
                   value={formData.purposeOfVisit}
-                  onValueChange={(value) => handleInputChange("purpose", value)}
+                  onValueChange={(value) =>
+                    handleInputChange("purposeOfVisit", value)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select purpose" />
@@ -208,11 +220,11 @@ const handleGenerateCode = async () => {
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      id="validDate"
+                      id="date"
                       type="date"
                       value={formData.date}
                       onChange={(e) =>
-                        handleInputChange("validDate", e.target.value)
+                        handleInputChange("date", e.target.value)
                       }
                       className="pl-10"
                       required
@@ -220,7 +232,7 @@ const handleGenerateCode = async () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="validFromTime">From *</Label>
+                  <Label htmlFor="from">From *</Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
@@ -228,7 +240,7 @@ const handleGenerateCode = async () => {
                       type="time"
                       value={formData.from}
                       onChange={(e) =>
-                        handleInputChange("validFromTime", e.target.value)
+                        handleInputChange("from", e.target.value)
                       }
                       className="pl-10"
                       required
@@ -240,12 +252,10 @@ const handleGenerateCode = async () => {
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      id="validUntilTime"
+                      id="to"
                       type="time"
                       value={formData.to}
-                      onChange={(e) =>
-                        handleInputChange("validUntilTime", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange("to", e.target.value)}
                       className="pl-10"
                       required
                     />
@@ -332,8 +342,8 @@ const handleGenerateCode = async () => {
                     .replace(/\b\w/g, (l) => l.toUpperCase())}
                 </p>
                 <p>
-                  <strong>Valid:</strong> {formData.date}{" "}
-                  from {formData.from} to {formData.to}
+                  <strong>Valid:</strong> {formData.date} from {formData.from}{" "}
+                  to {formData.to}
                 </p>
               </div>
 

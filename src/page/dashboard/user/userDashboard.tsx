@@ -93,8 +93,9 @@ interface VisitorFormData {
 
 interface VisitorCode extends VisitorFormData {
   id: string;
+  userId: string;
   verificationCode: number;
-  status: string;
+  codeStatus: string;
   createdAt: string;
 }
 
@@ -141,20 +142,17 @@ interface VisitorCode extends VisitorFormData {
 
   const handleGenerateVisitorCode = (code: VisitorCode) => {
   setVisitorCodes((prev) => [code, ...prev]); 
-  setIsVisitorCodeModalOpen(false); 
-  toast.success("Visitor code generated successfully!");
+  // setIsVisitorCodeModalOpen(false); 
 };
 
 
   const getUserOrder = async () => {
     try {
       const userId = localStorage.getItem("userId");
-      console.log("userId", userId);
       if (!userId) {
         return;
       }
       const response = await getOrderByUserId(userId);
-      console.log("new orders", response);
       setOrders(response);
     } catch (error) {
       console.error("❌ Error fetching vendor orders:", error);
@@ -168,7 +166,7 @@ interface VisitorCode extends VisitorFormData {
         return;
     }
     const response = await getVerifyCodeByUserId(userId)
-    setVisitorCodes(response.data)
+    setVisitorCodes(response)
     }catch(error){
     console.error('error in getting user verification codes', error)
     }
@@ -432,27 +430,31 @@ interface VisitorCode extends VisitorFormData {
                 </Button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {visitorCodes.slice(0, 4).map((code) => (
-                  <Card key={code.id} className="border-black/10">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-sm font-medium">dummy data
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={
-                            code.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                          }
-                        >
-                          {code.status === "active" ? "Active" : "Used"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600">{code.visitorName}</p>
-                      <p className="text-xs text-gray-500">
-                        {code.purposeOfVisit} • Valid until {code.to}
-                      </p>
-                    </CardContent>
+                {visitorCodes.map((code) => (
+                <Card key={code.id} className="border-black/10">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex flex-col text-left">
+                  <span className="font-mono text-sm font-bold">{code.id}</span>
+                  <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
+                  <p className="text-xs text-gray-500">
+                    {code.purposeOfVisit} • Valid until {code.to}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    code.codeStatus === "Active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-800"
+                  }
+                >
+                  {code.codeStatus === "Active" ? "Active" : "Used"}
+                </Badge>
+              </div>
+            </CardContent>
                   </Card>
+
                 ))}
               </div>
             </div>

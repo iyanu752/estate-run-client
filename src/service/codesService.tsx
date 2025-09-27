@@ -2,6 +2,7 @@ import API_ENDPOINTS from "@/config/endpoints";
 import axios from "axios";
 
 interface VerificationCode {
+  userId: string;
   visitorName: string;
   visitorPhone: number;
   purposeOfVisit: string;
@@ -19,7 +20,7 @@ interface VerifyCode {
 const createVerifyCode = async (verificationCode: VerificationCode) => {
   try {
     const response = await axios.post(
-      `${API_ENDPOINTS.CODE}`,
+      `${API_ENDPOINTS.CODE}/createCode`,
       verificationCode
     );
     return response.data;
