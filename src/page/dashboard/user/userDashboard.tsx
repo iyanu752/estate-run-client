@@ -525,7 +525,45 @@ interface VisitorCode extends VisitorFormData {
         </div>
         </TabsContent>
 
-        <TabsContent value="visitors" className="space-y-6">no visitors yet</TabsContent>
+        <TabsContent value="visitors" className="space-y-6">
+                   <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Recent Visitor Codes</h2>
+                <Button size="sm" onClick={() => setIsVisitorCodeModalOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Generate Code
+                </Button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {visitorCodes.map((code) => (
+                <Card key={code.id} className="border-black/10">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex flex-col text-left">
+                  <span className="font-mono text-sm font-bold">{code.id}</span>
+                  <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
+                  <p className="text-xs text-gray-500">
+                    {code.purposeOfVisit} • Valid until {code.to}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    code.codeStatus === "Active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-800"
+                  }
+                >
+                  {code.codeStatus === "Active" ? "Active" : "Used"}
+                </Badge>
+              </div>
+            </CardContent>
+                  </Card>
+
+                ))}
+              </div>
+            </div>
+        </TabsContent>
         <TabsContent value="news" className="space-y-6">no news yet</TabsContent>
         <TabsContent value="emergency" className="space-y-6">no emergencies yet</TabsContent>
         </Tabs>
