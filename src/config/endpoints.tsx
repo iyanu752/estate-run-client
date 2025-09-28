@@ -14,7 +14,7 @@ USERS: `${BASE_URL}/users`,
 CART: `${BASE_URL}/cart`,
 ORDER: `${BASE_URL}/orders`,
 UPLOAD: `${BASE_URL}/upload`,
-CODE: `${BASE_URL}codes`
+CODE: `${BASE_URL}/codes`
 
 
 }
