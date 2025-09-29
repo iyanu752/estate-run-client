@@ -41,7 +41,7 @@ export default function LoginPage() {
     const type = searchParams.get("type");
     const signup = searchParams.get("signup");
 
-    if (type && ["user", "vendor", "rider", "admin"].includes(type)) {
+    if (type && ["user", "vendor", "rider","admin", "ops"].includes(type)) {
       setActiveTab(type);
     }
 

@@ -19,6 +19,7 @@ import CartPage from "./page/cart/cartPage";
 import CheckoutPage from "./page/checkout/checkoutPage";
 import OrderPage from "./page/orders/[id]/ordersPage";
 import AdminDashboard from "./page/dashboard/admin/adminDashboard";
+import OpsDashboard from "./page/dashboard/ops/opsDashboard";
 import VendorProfile from "./page/profile/vendorProfile/vendorProfile"
 import UserProfile from "./page/profile/userProfile/userProfile"
 import RiderProfile from "./page/profile/userProfile/userProfile";
@@ -94,6 +95,12 @@ function App() {
           <AdminDashboard />
         </div>
       ),
+    },
+    {
+      path: "/dashboard/ops",
+      element:(
+        <OpsDashboard/>
+      )
     },
     {
       path: "/dashboard/user/supermarket/:id",
