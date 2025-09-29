@@ -159,18 +159,18 @@ interface VisitorCode extends VisitorFormData {
     }
   };
 
-  const getCodesByUserId = async() => {
-    try{
-    const userId = localStorage.getItem("userId")
-    if (!userId) {
-        return;
-    }
-    const response = await getVerifyCodeByUserId(userId)
-    setVisitorCodes(response)
-    }catch(error){
-    console.error('error in getting user verification codes', error)
-    }
+const getCodesByUserId = async () => {
+  try {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+    const response = await getVerifyCodeByUserId(userId);
+    setVisitorCodes(Array.isArray(response) ? response : []);
+  } catch (error) {
+    console.error("Error in getting user verification codes", error);
+    setVisitorCodes([]); 
   }
+};
+
 
   // const handleGenerateVisitorCode = (code: VisitorCode) => {
   //   getVi
@@ -254,121 +254,129 @@ interface VisitorCode extends VisitorFormData {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="border-b border-gray-200">
-        <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between px-4 py-4 gap-4 sm:gap-0">
-          <h1 className="text-xl font-bold tracking-tight">Estate Run</h1>
+    <header className="border-b border-gray-200">
+      <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between px-4 py-4 gap-4">
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-center sm:text-left">
+          Estate Run
+        </h1>
 
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium hidden sm:inline">
-              Welcome, Resident
-            </span>
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
+          <span className="text-sm font-medium hidden sm:inline">
+            Welcome, Resident
+          </span>
 
-            <a href="/dashboard/user/orders/:id">
-              <Button variant="ghost" size="icon">
-                <Package className="h-5 w-5" />
-                <span className="sr-only">My Orders</span>
-              </Button>
-            </a>
-
-            <a href="/profile/user">
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
-                <span className="sr-only">Profile</span>
-              </Button>
-            </a>
-
-            <Button variant="ghost" size="icon" onClick={logout}>
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Logout</span>
+          <a href="/dashboard/user/orders/:id">
+            <Button variant="ghost" size="icon" className="w-9 h-9 sm:w-10 sm:h-10">
+              <Package className="h-5 w-5" />
+              <span className="sr-only">My Orders</span>
             </Button>
-          </div>
-        </div>
-      </header>
+          </a>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="shopping">Shopping</TabsTrigger>
-            <TabsTrigger value="visitors">Visitor Codes</TabsTrigger>
-            <TabsTrigger value="news">Estate News</TabsTrigger>
-            <TabsTrigger value="emergency">Emergency</TabsTrigger>
-          </TabsList>
-                  <TabsContent value="overview" className="space-y-8">
-                 {orders.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Recent Orders</h2>
-              <a href="/dashboard/user/orders/:id">
-                <Button variant="outline" size="sm">
-                  View All Orders
-                </Button>
-              </a>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {orders.map((order) => (
-                <Card key={order._id} className="border-black/10">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-medium">#{order.orderId}</h3>
-                        <p className="text-sm text-gray-600">
-                          {order.userId.supermarket} •{" "}
-                          {new Date(order.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
+          <a href="/profile/user">
+            <Button variant="ghost" size="icon" className="w-9 h-9 sm:w-10 sm:h-10">
+              <User className="h-5 w-5" />
+              <span className="sr-only">Profile</span>
+            </Button>
+          </a>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-9 h-9 sm:w-10 sm:h-10"
+            onClick={logout}
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="sr-only">Logout</span>
+          </Button>
+        </div>
+      </div>
+    </header>
+
+ <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-6 w-full flex-wrap h-auto p-1 grid grid-cols-2 sm:grid-cols-5 gap-1">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="shopping" className="text-xs sm:text-sm">
+            Shopping
+          </TabsTrigger>
+          <TabsTrigger value="visitors" className="text-xs sm:text-sm">
+            Visitor Codes
+          </TabsTrigger>
+          <TabsTrigger value="news" className="text-xs sm:text-sm">
+            Estate News
+          </TabsTrigger>
+          <TabsTrigger value="emergency" className="text-xs sm:text-sm">
+            Emergency
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Overview */}
+        <TabsContent value="overview" className="space-y-8">
+          {orders.length > 0 && (
+            <div className="mb-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                <h2 className="text-lg sm:text-xl font-bold">Recent Orders</h2>
+                <a href="/dashboard/user/orders/:id" className="w-full sm:w-auto">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                    View All Orders
+                  </Button>
+                </a>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {orders.map((order) => (
+                  <Card key={order._id} className="border-black/10">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row items-start justify-between mb-3 gap-2">
+                        <div>
+                          <h3 className="font-medium break-words">#{order.orderId}</h3>
+                          <p className="text-sm text-gray-600">
+                            {order.userId.supermarket} •{" "}
+                            {new Date(order.createdAt).toLocaleDateString("en-US", {
                               year: "numeric",
                               month: "short",
                               day: "numeric",
-                            }
-                          )}
-                          ,{" "}
-                          {new Date(order.createdAt).toLocaleTimeString(
-                            "en-US",
-                            {
+                            })}
+                            ,{" "}
+                            {new Date(order.createdAt).toLocaleTimeString("en-US", {
                               hour: "numeric",
                               minute: "2-digit",
                               hour12: true,
-                            }
-                          )}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-800">
-                          {" "}
-                          Verification code •{" "}
-                          <span className="font-bold">
-                            {order.verificationCode}
-                          </span>
-                        </p>
+                            })}
+                          </p>
+                          <p className="text-xs sm:text-sm text-gray-800">
+                            Verification code •{" "}
+                            <span className="font-bold">{order.verificationCode}</span>
+                          </p>
+                        </div>
+                        <Badge
+                          variant={order.status === "pending" ? "outline" : "default"}
+                          className={`text-xs ${
+                            statusColors[order.status] ??
+                            "bg-gray-100 text-gray-800 border-gray-300"
+                          }`}
+                        >
+                          {order.status.charAt(0).toUpperCase() +
+                            order.status.slice(1).replace(/-/g, " ")}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant={
-                          order.status === "pending" ? "outline" : "default"
-                        }
-                        className={`text-xs ${
-                          statusColors[order.status] ??
-                          "bg-gray-100 text-gray-800 border-gray-300"
-                        }`}
-                      >
-                        {order.status.charAt(0).toUpperCase() +
-                          order.status.slice(1).replace(/-/g, " ")}
-                      </Badge>{" "}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">
-                        {order.items.length} items • ₦
-                        {order.totalAmount.toFixed(2)}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="text-sm text-gray-600">
+                          {order.items.length} items • ₦{order.totalAmount.toFixed(2)}
+                        </div>
+                        <a href={`/orders/${order._id}`} className="w-full sm:w-auto">
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            Track Order
+                          </Button>
+                        </a>
                       </div>
-                      <a href={`/orders/${order._id}`}>
-                        <Button variant="outline" size="sm">
-                          Track Order
-                        </Button>
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </div>
         )}
                   {/* Quick Actions */}
             <div>
@@ -430,32 +438,56 @@ interface VisitorCode extends VisitorFormData {
                 </Button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {visitorCodes.map((code) => (
-                <Card key={code.id} className="border-black/10">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex flex-col text-left">
-                  <span className="font-mono text-sm font-bold">{code.id}</span>
-                  <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
-                  <p className="text-xs text-gray-500">
-                    {code.purposeOfVisit} • Valid until {code.to}
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    code.codeStatus === "Active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }
-                >
-                  {code.codeStatus === "Active" ? "Active" : "Used"}
-                </Badge>
-              </div>
-            </CardContent>
-                  </Card>
-
-                ))}
+                  {visitorCodes && visitorCodes.length > 0 ? (
+                    visitorCodes.map((code) => (
+                      <Card key={code.id} className="border-black/10">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex flex-col text-left">
+                              <span className="font-mono text-sm font-bold">{code.id}</span>
+                              <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
+                              <p className="text-xs text-gray-500">
+                                {code.purposeOfVisit} • Valid until {code.to}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                code.codeStatus === "Active"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }
+                            >
+                              {code.codeStatus === "Active" ? "Active" : "Used"}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 px-4">
+                      <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                        <svg
+                          className="w-8 h-8 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">No visitor codes found</h3>
+                      <p className="text-sm text-gray-500 text-center max-w-sm">
+                        Visitor codes will appear here once they are generated for your guests.
+                      </p>
+                    </div>
+                  )}
               </div>
             </div>
         </TabsContent>
@@ -534,33 +566,57 @@ interface VisitorCode extends VisitorFormData {
                   Generate Code
                 </Button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {visitorCodes.map((code) => (
-                <Card key={code.id} className="border-black/10">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex flex-col text-left">
-                  <span className="font-mono text-sm font-bold">{code.id}</span>
-                  <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
-                  <p className="text-xs text-gray-500">
-                    {code.purposeOfVisit} • Valid until {code.to}
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    code.codeStatus === "Active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-100 text-gray-800"
-                  }
-                >
-                  {code.codeStatus === "Active" ? "Active" : "Used"}
-                </Badge>
-              </div>
-            </CardContent>
-                  </Card>
-
-                ))}
+               <div className="grid gap-3 sm:grid-cols-2">
+                  {visitorCodes && visitorCodes.length > 0 ? (
+                    visitorCodes.map((code) => (
+                      <Card key={code.id} className="border-black/10">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex flex-col text-left">
+                              <span className="font-mono text-sm font-bold">{code.id}</span>
+                              <p className="text-sm text-gray-600 font-semibold">{code.visitorName}</p>
+                              <p className="text-xs text-gray-500">
+                                {code.purposeOfVisit} • Valid until {code.to}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                code.codeStatus === "Active"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }
+                            >
+                              {code.codeStatus === "Active" ? "Active" : "Used"}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 px-4">
+                      <div className="w-16 h-16 mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                        <svg
+                          className="w-8 h-8 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">No visitor codes found</h3>
+                      <p className="text-sm text-gray-500 text-center max-w-sm">
+                        Visitor codes will appear here once they are generated for your guests.
+                      </p>
+                    </div>
+                  )}
               </div>
             </div>
         </TabsContent>
