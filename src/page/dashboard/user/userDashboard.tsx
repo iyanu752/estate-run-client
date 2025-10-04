@@ -59,6 +59,7 @@ interface Supermarket {
 }
 
 export default function UserDashboard() {
+  const [userName, setUserName] = useState<string>("Resident");
 
     interface UserOrder {
     _id: string;
@@ -178,7 +179,19 @@ const getCodesByUserId = async () => {
 
   useEffect(() => {
     getUserOrder();
-    getCodesByUserId()
+    getCodesByUserId();
+
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.firstName) {
+          setUserName(user.firstName);
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -262,7 +275,7 @@ const getCodesByUserId = async () => {
 
         <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
           <span className="text-sm font-medium hidden sm:inline">
-            Welcome, Resident
+            Welcome, {userName}
           </span>
 
           <a href="/dashboard/user/orders/:id">
