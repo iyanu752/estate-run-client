@@ -141,7 +141,7 @@ export default function VendorDashboard() {
   const supermarketDescription = supermarket?.description || "";
   const supermarketId = supermarket?._id;
   const vendorId = supermarket?.ownerId || "";
-  const supermarketImage = supermarket?.image || "/placeholder.svg"
+  const supermarketImage = supermarket?.image || "/placeholder.svg";
   const [isOpen, setIsOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
@@ -164,42 +164,45 @@ export default function VendorDashboard() {
     "payment-failed": "bg-red-50 text-red-700 border-red-200",
   };
 
-useEffect(() => {
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("Connected to WebSocket");
     });
 
-    socket.on('orderPlaced', (data: any) => {
-      const orderid = data.product.orderId
+    socket.on("orderPlaced", (data: any) => {
+      const orderid = data.product.orderId;
       toast.success(`New Order ${orderid} Placed!`);
-      setOrders((previousOrders) => [ data.product, ...previousOrders])
+      setOrders((previousOrders) => [data.product, ...previousOrders]);
     });
 
-       socket.on('orderStatusUpdate', (data: any) => {
-      console.log('data', data)
-      const orderStatus = data.orders.status
-      let message = ''
-        if (orderStatus === 'out-for-delivery'){
-        message = 'Rider has picked up order, Out for delivery'
-      }else if (orderStatus === 'delivered') {
-        message = 'Order delivered, Your goods have been delivered'
+    socket.on("orderStatusUpdate", (data: any) => {
+      console.log("data", data);
+      const orderStatus = data.orders.status;
+      let message = "";
+      if (orderStatus === "out-for-delivery") {
+        message = "Rider has picked up order, Out for delivery";
+      } else if (orderStatus === "delivered") {
+        message = "Order delivered, Your goods have been delivered";
       }
       toast.success(`${message}`);
-      getVendorOrder()
+      getVendorOrder();
     });
 
     return () => {
-      socket.off('orderPlaced');
-      socket.off('orderStatusUpdate')
+      socket.off("orderPlaced");
+      socket.off("orderStatusUpdate");
     };
   }, []);
-
 
   const getVendorOrder = async () => {
     try {
       const response = await getOrdersByVendorId(vendorId);
       console.log("new orders", response);
-      setOrders(response);
+      const sortedOrders = response.sort(
+        (a: VendorOrder, b: VendorOrder) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setOrders(sortedOrders);
     } catch (error) {
       console.error("❌ Error fetching vendor orders:", error);
     }
@@ -222,10 +225,6 @@ useEffect(() => {
       fetchVendorProducts();
     }
   }, [vendorId, isLoading]);
-
-
-
-
 
   const getSupermarketInfo = async () => {
     try {
@@ -253,11 +252,11 @@ useEffect(() => {
     }
   };
 
-   const logout = async () => {
-    const userId = localStorage.getItem('userId');
+  const logout = async () => {
+    const userId = localStorage.getItem("userId");
 
     if (!userId) {
-      toast.error('No user found to log out.');
+      toast.error("No user found to log out.");
       return;
     }
 
@@ -265,15 +264,15 @@ useEffect(() => {
       await logoutUser(userId);
 
       // Clean up localStorage or cookies
-      localStorage.removeItem('userId');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem("userId");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
 
-      toast.success('You have been logged out');
-      navigate('/');
+      toast.success("You have been logged out");
+      navigate("/");
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error(typeof error === 'string' ? error : 'Logout failed');
+      console.error("Logout error:", error);
+      toast.error(typeof error === "string" ? error : "Logout failed");
     }
   };
 
@@ -351,17 +350,17 @@ useEffect(() => {
               product.isAvailable !== undefined
                 ? product.isAvailable
                 : product.stock !== undefined
-                ? product.stock
-                : (product.stock || product.stock) > 0,
+                  ? product.stock
+                  : (product.stock || product.stock) > 0,
             stock:
               product.stock !== undefined
                 ? product.stock
                 : typeof product.stock === "number"
-                ? product.stock
-                : product.stock || 0,
+                  ? product.stock
+                  : product.stock || 0,
             image: product.image || "/placeholder.svg?height=100&width=100",
             description: product.description || "",
-          })
+          }),
         );
         setItems(transformedProducts);
       } else {
@@ -407,8 +406,8 @@ useEffect(() => {
       items.map((item) =>
         item.id === updatedItem.id || item._id === updatedItem._id
           ? updatedItem
-          : item
-      )
+          : item,
+      ),
     );
     setSelectedItem(null);
     fetchVendorProducts();
@@ -440,8 +439,8 @@ useEffect(() => {
       orders.map((order) =>
         order.orderId === orderId
           ? { ...order, status: newStatus as any }
-          : order
-      )
+          : order,
+      ),
     );
   };
 
